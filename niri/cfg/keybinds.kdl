@@ -121,8 +121,8 @@ binds {
     Mod+W                               { toggle-column-tabbed-display; }
 
     // ─── Screenshots ───
-    Ctrl+Mod+S                          { spawn "screenshot-region"; }
     Mod+Shift+S                         { spawn "screenshot-region"; }
+    Mod+Shift+A                         { spawn "screenshot-screen"; }
 
     // ─── Clipboard ───
     Mod+V                               { spawn "cliphist-gui"; }
