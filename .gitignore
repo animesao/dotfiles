@@ -1,0 +1,8 @@
+# Ignore sensitive files
+fish/fish_variables
+
+# Ignore cache
+*.cache
+
+# Ignore logs
+*.log
