@@ -136,25 +136,37 @@ check_and_install() {
 # Setup configs
 setup_configs() {
     echo -e "${CYAN}━━━ Setting up configs ━━━${NC}"
-    
+
+    # Window manager & desktop
     link "$DOTFILES_DIR/niri" "$HOME/.config/niri"
     link "$DOTFILES_DIR/noctalia" "$HOME/.config/noctalia"
+    link "$DOTFILES_DIR/autostart" "$HOME/.config/autostart"
+
+    # Terminal & shell
     link "$DOTFILES_DIR/alacritty" "$HOME/.config/alacritty"
     link "$DOTFILES_DIR/fish" "$HOME/.config/fish"
-    link "$DOTFILES_DIR/htop" "$HOME/.config/htop"
+
+    # Editors
     link "$DOTFILES_DIR/micro" "$HOME/.config/micro"
+    link "$DOTFILES_DIR/vscodium" "$HOME/.config/VSCodium/User"
+
+    # System utils
+    link "$DOTFILES_DIR/htop" "$HOME/.config/htop"
+
+    # GTK theming
     link "$DOTFILES_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
     link "$DOTFILES_DIR/gtk-4.0" "$HOME/.config/gtk-4.0"
 
-    # Scripts
-    mkdir -p "$HOME/.local/bin"
-    for script in "$DOTFILES_DIR"/scripts/*.sh; do
-        [ -f "$script" ] || continue
-        name=$(basename "$script" .sh)
-        cp "$script" "$HOME/.local/bin/$name"
-        chmod +x "$HOME/.local/bin/$name"
-        info "Installed: $name"
-    done
+    # Apps
+    link "$DOTFILES_DIR/qbittorrent" "$HOME/.config/qBittorrent"
+
+    # XDG
+    link "$DOTFILES_DIR/user-dirs.dirs" "$HOME/.config/user-dirs.dirs"
+    link "$DOTFILES_DIR/user-dirs.locale" "$HOME/.config/user-dirs.locale"
+    link "$DOTFILES_DIR/mimeapps.list" "$HOME/.config/mimeapps.list"
+
+    # Git
+    link "$DOTFILES_DIR/gitconfig" "$HOME/.gitconfig"
 
     echo ""
 }
