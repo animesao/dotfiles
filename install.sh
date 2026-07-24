@@ -146,6 +146,16 @@ setup_configs() {
     link "$DOTFILES_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
     link "$DOTFILES_DIR/gtk-4.0" "$HOME/.config/gtk-4.0"
 
+    # Scripts
+    mkdir -p "$HOME/.local/bin"
+    for script in "$DOTFILES_DIR"/scripts/*.sh; do
+        [ -f "$script" ] || continue
+        name=$(basename "$script" .sh)
+        cp "$script" "$HOME/.local/bin/$name"
+        chmod +x "$HOME/.local/bin/$name"
+        info "Installed: $name"
+    done
+
     echo ""
 }
 
