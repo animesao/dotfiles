@@ -14,7 +14,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QLabel, QPushButton, QFrame,
-    QGraphicsDropShadowEffect, QScrollArea
+    QGraphicsDropShadowEffect, QScrollArea, QDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QRectF, QSize
 from PyQt6.QtGui import (
@@ -164,11 +164,128 @@ class Item(QWidget):
     def leaveEvent(self, e): self._hov = False; self.update()
 
 
+# ─── Image viewer dialog ───
+class ImageViewer(QDialog):
+    def __init__(self, img_path: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Image Preview")
+        self.setMinimumSize(700, 550)
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint)
+        self.setStyleSheet(f"background: {BG};")
+
+        self._zoom = 1.0
+        self._path = img_path
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        # toolbar
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(12, 8, 12, 8)
+        toolbar.setSpacing(6)
+
+        btn_out = QPushButton()
+        btn_out.setIcon(mk_icon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M8 11h6"/>', FG_DIM))
+        btn_out.setIconSize(QSize(16, 16))
+        btn_out.setFixedSize(30, 30)
+        btn_out.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_out.setStyleSheet(f"QPushButton{{background:{SURF_HI};border:none;border-radius:6px;}}"
+                              f"QPushButton:hover{{background:{HOVER};}}")
+        btn_out.clicked.connect(lambda: self._zoom_by(-0.25))
+        toolbar.addWidget(btn_out)
+
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setFont(QFont("Adwaita Sans", 9))
+        self.zoom_label.setStyleSheet(f"color: {FG_DIM}; background: transparent;")
+        self.zoom_label.setFixedWidth(40)
+        self.zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        toolbar.addWidget(self.zoom_label)
+
+        btn_in = QPushButton()
+        btn_in.setIcon(mk_icon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/>', FG_DIM))
+        btn_in.setIconSize(QSize(16, 16))
+        btn_in.setFixedSize(30, 30)
+        btn_in.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_in.setStyleSheet(f"QPushButton{{background:{SURF_HI};border:none;border-radius:6px;}}"
+                             f"QPushButton:hover{{background:{HOVER};}}")
+        btn_in.clicked.connect(lambda: self._zoom_by(0.25))
+        toolbar.addWidget(btn_in)
+
+        btn_fit = QPushButton("Fit")
+        btn_fit.setFont(QFont("Adwaita Sans", 9, QFont.Weight.Bold))
+        btn_fit.setFixedHeight(30)
+        btn_fit.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_fit.setStyleSheet(f"QPushButton{{background:{SURF_HI};color:{FG_DIM};border:none;"
+                              f"border-radius:6px;padding:0 12px;}}"
+                              f"QPushButton:hover{{background:{HOVER};color:{FG};}}")
+        btn_fit.clicked.connect(self._fit)
+        toolbar.addWidget(btn_fit)
+
+        toolbar.addStretch()
+
+        fname = QLabel(os.path.basename(img_path))
+        fname.setFont(QFont("Adwaita Sans", 8))
+        fname.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
+        toolbar.addWidget(fname)
+
+        btn_close = QPushButton()
+        btn_close.setIcon(mk_icon('<path d="M18 6L6 18M6 6l12 12"/>', FG_DIM))
+        btn_close.setIconSize(QSize(16, 16))
+        btn_close.setFixedSize(30, 30)
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_close.setStyleSheet(f"QPushButton{{background:transparent;border:none;border-radius:6px;}}"
+                                f"QPushButton:hover{{background:{RED};}}")
+        btn_close.clicked.connect(self.close)
+        toolbar.addWidget(btn_close)
+
+        lay.addLayout(toolbar)
+
+        # image area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(f"QScrollArea{{background:{BG};border:none;}}")
+
+        self.img_label = QLabel()
+        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_label.setStyleSheet(f"background:{BG};")
+
+        self._original = QPixmap(img_path)
+        self._update_image()
+
+        scroll.setWidget(self.img_label)
+        lay.addWidget(scroll, 1)
+
+    def _zoom_by(self, delta):
+        self._zoom = max(0.1, min(5.0, self._zoom + delta))
+        self._update_image()
+
+    def _fit(self):
+        if self._original.isNull():
+            return
+        pw = self.width() - 40
+        ph = self.height() - 80
+        self._zoom = min(pw / self._original.width(),
+                         ph / self._original.height(), 1.0)
+        self._update_image()
+
+    def _update_image(self):
+        if self._original.isNull():
+            return
+        scaled = self._original.scaled(
+            int(self._original.width() * self._zoom),
+            int(self._original.height() * self._zoom),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        self.img_label.setPixmap(scaled)
+        self.zoom_label.setText(f"{int(self._zoom * 100)}%")
+
+
 # ─── Preview ───
 class Preview(QWidget):
     def __init__(self):
         super().__init__()
-        self.setFixedWidth(155)
+        self.setFixedWidth(220)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 10, 10, 10)
         lay.setSpacing(6)
@@ -188,6 +305,7 @@ class Preview(QWidget):
         self.img_label = QLabel()
         self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_label.setStyleSheet(f"background: {BG}; border-radius: {R_SM}px; padding: 4px;")
+        self.img_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.img_label.hide()
         lay.addWidget(self.img_label, 1)
 
@@ -196,14 +314,17 @@ class Preview(QWidget):
         self.meta.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
         lay.addWidget(self.meta)
 
+        self._current_img = None
+
     def show(self, c):
         if c.startswith("[image:"):
             img_path = c.replace("[image:", "").replace("]", "")
             if os.path.exists(img_path):
                 pixmap = QPixmap(img_path)
                 if not pixmap.isNull():
+                    self._current_img = img_path
                     scaled = pixmap.scaled(
-                        135, 135,
+                        200, 200,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation
                     )
@@ -211,17 +332,20 @@ class Preview(QWidget):
                     self.img_label.show()
                     self.body.hide()
                 else:
+                    self._current_img = None
                     self.body.setText("Image")
                     self.body.setStyleSheet(f"color: {AQUA}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
                     self.body.show()
                     self.img_label.hide()
             else:
+                self._current_img = None
                 self.body.setText("Image")
                 self.body.setStyleSheet(f"color: {AQUA}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
                 self.body.show()
                 self.img_label.hide()
-            self.meta.setText("image/png")
+            self.meta.setText("image/png — click to expand")
         else:
+            self._current_img = None
             self.body.setText(c[:400])
             self.body.setStyleSheet(f"color: {FG_DIM}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
             self.body.show()
@@ -229,11 +353,17 @@ class Preview(QWidget):
             self.meta.setText(f"{len(c)} chars · {c.count(chr(10))+1} lines")
 
     def empty(self):
+        self._current_img = None
         self.body.setText("Select item")
         self.body.setStyleSheet(f"color: {FG_FAINT}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
         self.body.show()
         self.img_label.hide()
         self.meta.setText("")
+
+    def mousePressEvent(self, e):
+        if self._current_img and e.button() == Qt.MouseButton.LeftButton:
+            viewer = ImageViewer(self._current_img, self)
+            viewer.exec()
 
 
 # ─── Pill ───
