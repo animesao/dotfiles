@@ -144,7 +144,8 @@ setup_configs() {
     link "$DOTFILES_DIR/htop" "$HOME/.config/htop"
     link "$DOTFILES_DIR/micro" "$HOME/.config/micro"
     link "$DOTFILES_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
-    
+    link "$DOTFILES_DIR/gtk-4.0" "$HOME/.config/gtk-4.0"
+
     echo ""
 }
 
@@ -161,7 +162,8 @@ install_cliphist() {
     # Install scripts
     cp "$DOTFILES_DIR/cliphist/cliphist.py" "$HOME/.local/bin/cliphist"
     cp "$DOTFILES_DIR/cliphist/cliphist-gui.py" "$HOME/.local/bin/cliphist-gui"
-    chmod +x "$HOME/.local/bin/cliphist" "$HOME/.local/bin/cliphist-gui"
+    cp "$DOTFILES_DIR/cliphist/cliphist-open" "$HOME/.local/bin/cliphist-open" 2>/dev/null || true
+    chmod +x "$HOME/.local/bin/cliphist" "$HOME/.local/bin/cliphist-gui" "$HOME/.local/bin/cliphist-open" 2>/dev/null || true
     
     # Create default config
     if [ ! -f "$HOME/.config/cliphist/config.json" ]; then
@@ -241,6 +243,14 @@ main() {
     read -p "Set fish as default shell? (y/N): " setup_fish
     if [[ "$setup_fish" =~ ^[Yy]$ ]]; then
         setup_shell
+    fi
+
+    # Install SDDM config + theme
+    if [ -f "$DOTFILES_DIR/sddm/install.sh" ]; then
+        read -p "Install SDDM config + theme? (y/N): " install_sddm
+        if [[ "$install_sddm" =~ ^[Yy]$ ]]; then
+            bash "$DOTFILES_DIR/sddm/install.sh"
+        fi
     fi
     
     echo ""
