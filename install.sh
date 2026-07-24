@@ -11,11 +11,55 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d_%H%M%S)"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-info() { echo -e "${GREEN}[INFO]${NC} $1"; }
-warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-error() { echo -e "${RED}[ERROR]${NC} $1"; }
+info() { echo -e "${GREEN}[✓]${NC} $1"; }
+warn() { echo -e "${YELLOW}[!]${NC} $1"; }
+error() { echo -e "${RED}[✗]${NC} $1"; }
+checking() { echo -ne "${CYAN}[?]${NC} Checking $1... "; }
+
+# Check if command exists
+check_cmd() {
+    command -v "$1" &> /dev/null
+}
+
+# Install package if missing
+install_if_missing() {
+    local pkg="$1"
+    local cmd="${2:-$1}"
+    
+    checking "$pkg"
+    if check_cmd "$cmd"; then
+        echo -e "${GREEN}installed${NC}"
+    else
+        echo -e "${YELLOW}not found, installing...${NC}"
+        sudo pacman -S --needed --noconfirm "$pkg" 2>/dev/null && \
+            info "$pkg installed" || \
+            warn "Failed to install $pkg (may need AUR)"
+    fi
+}
+
+# Install AUR package if missing
+install_aur_if_missing() {
+    local pkg="$1"
+    local cmd="${2:-$1}"
+    
+    if ! check_cmd "yay"; then
+        warn "yay not found, skipping AUR package: $pkg"
+        return
+    fi
+    
+    checking "$pkg"
+    if check_cmd "$cmd"; then
+        echo -e "${GREEN}installed${NC}"
+    else
+        echo -e "${YELLOW}not found, installing from AUR...${NC}"
+        yay -S --needed --noconfirm "$pkg" 2>/dev/null && \
+            info "$pkg installed" || \
+            warn "Failed to install $pkg"
+    fi
+}
 
 backup() {
     local src="$1"
@@ -43,63 +87,65 @@ link() {
     info "Linked: $dest -> $src"
 }
 
-# Install packages (Arch/CachyOS)
-install_packages() {
-    info "Installing required packages..."
+# Check and install all required programs
+check_and_install() {
+    echo ""
+    echo -e "${CYAN}━━━ System Packages ━━━${NC}"
     
-    sudo pacman -S --needed --noconfirm \
-        niri \
-        alacritty \
-        fish \
-        htop \
-        micro \
-        btop \
-        waybar \
-        cliphist \
-        wl-clipboard \
-        grim \
-        slurp \
-        swaybg \
-        polkit-gnome \
-        pipewire \
-        wireplumber \
-        pavucontrol \
-        brightnessctl \
-        network-manager-applet \
-       托盘图标 \
-        2>/dev/null || true
+    # Core
+    install_if_missing "niri"
+    install_if_missing "alacritty"
+    install_if_missing "fish"
+    install_if_missing "htop"
+    install_if_missing "micro"
+    install_if_missing "btop"
+    install_if_missing "git"
+    install_if_missing "curl"
+    install_if_missing "wget"
+    install_if_missing "unzip"
     
-    # AUR packages
-    if command -v yay &> /dev/null; then
-        yay -S --needed --noconfirm \
-            noctalia-shell-bin 2>/dev/null || true
-    fi
+    # Wayland utils
+    install_if_missing "wl-clipboard"
+    install_if_missing "cliphist"
+    install_if_missing "grim"
+    install_if_missing "slurp"
+    install_if_missing "swaybg"
+    install_if_missing "polkit-gnome"
+    install_if_missing "brightnessctl"
+    install_if_missing "nm-applet"
+    
+    # Audio
+    install_if_missing "pipewire"
+    install_if_missing "wireplumber"
+    install_if_missing "pavucontrol"
+    
+    # Fonts
+    install_if_missing "noto-fonts"
+    install_if_missing "noto-fonts-cjk"
+    install_if_missing "noto-fonts-emoji"
+    install_if_missing "ttf-font-awesome"
+    
+    echo ""
+    echo -e "${CYAN}━━━ AUR Packages ━━━${NC}"
+    
+    install_aur_if_missing "noctalia-shell-bin" "noctalia-shell"
+    
+    echo ""
 }
 
 # Setup configs
 setup_configs() {
-    info "Setting up configurations..."
+    echo -e "${CYAN}━━━ Setting up configs ━━━${NC}"
     
-    # niri
     link "$DOTFILES_DIR/niri" "$HOME/.config/niri"
-    
-    # noctalia
     link "$DOTFILES_DIR/noctalia" "$HOME/.config/noctalia"
-    
-    # alacritty
     link "$DOTFILES_DIR/alacritty" "$HOME/.config/alacritty"
-    
-    # fish
     link "$DOTFILES_DIR/fish" "$HOME/.config/fish"
-    
-    # htop
     link "$DOTFILES_DIR/htop" "$HOME/.config/htop"
-    
-    # micro
     link "$DOTFILES_DIR/micro" "$HOME/.config/micro"
-    
-    # gtk
     link "$DOTFILES_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
+    
+    echo ""
 }
 
 # Set fish as default shell
@@ -107,6 +153,9 @@ setup_shell() {
     if [ "$SHELL" != "/usr/bin/fish" ]; then
         info "Setting fish as default shell..."
         chsh -s /usr/bin/fish
+        info "Fish set as default shell"
+    else
+        info "Fish is already default shell"
     fi
 }
 
@@ -115,23 +164,26 @@ main() {
     echo ""
     echo "=================================="
     echo "   Dotfiles Installer"
+    echo "   github.com/animesao/dotfiles"
     echo "=================================="
     echo ""
     
-    # Check if running from dotfiles directory
     if [ ! -f "$DOTFILES_DIR/install.sh" ]; then
         error "Please run this script from the dotfiles directory"
         exit 1
     fi
     
-    # Install packages
-    read -p "Install required packages? (y/N): " install_pkgs
+    # Check and install packages
+    read -p "Check and install missing packages? (y/N): " install_pkgs
     if [[ "$install_pkgs" =~ ^[Yy]$ ]]; then
-        install_packages
+        check_and_install
     fi
     
     # Setup configs
-    setup_configs
+    read -p "Setup config symlinks? (y/N): " setup_cfgs
+    if [[ "$setup_cfgs" =~ ^[Yy]$ ]]; then
+        setup_configs
+    fi
     
     # Setup shell
     read -p "Set fish as default shell? (y/N): " setup_fish
@@ -141,7 +193,7 @@ main() {
     
     echo ""
     info "Installation complete!"
-    info "Backup saved to: $BACKUP_DIR"
+    [ -d "$BACKUP_DIR" ] && info "Backup saved to: $BACKUP_DIR"
     echo ""
     info "Log out and log back in for changes to take effect."
     echo ""
