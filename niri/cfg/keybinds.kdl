@@ -125,6 +125,9 @@ binds {
     CTRL+Shift+2                        { screenshot-screen; }
     CTRL+Shift+3                        { screenshot-window; }
 
+    // ─── Clipboard ───
+    Mod+V                               { spawn "cliphist-gui"; }
+
     // ─── Emergency Escape Key ───
     // Use this when a fullscreen app blocks your keybinds.
     // It disables any active keyboard shortcut inhibitor, restoring control.
