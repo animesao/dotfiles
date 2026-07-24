@@ -150,6 +150,9 @@ def run_daemon():
     while True:
         time.sleep(0.5)
 
+        # Re-read history in case GUI or other process modified it
+        history = load_history()
+
         content = get_clipboard_content()
         if content and content != last_content:
             history = add_to_history(history, content, config)
