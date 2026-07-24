@@ -121,9 +121,10 @@ binds {
     Mod+W                               { toggle-column-tabbed-display; }
 
     // ─── Screenshots ───
-    CTRL+Shift+1                        { screenshot; }
-    CTRL+Shift+2                        { screenshot-screen; }
-    CTRL+Shift+3                        { screenshot-window; }
+    CTRL+Shift+1                        { spawn "screenshot" "region"; }
+    CTRL+Shift+2                        { spawn "screenshot" "screen"; }
+    CTRL+Shift+3                        { spawn "screenshot" "window"; }
+    Mod+Shift+S                         { spawn "screenshot" "edit"; }
 
     // ─── Clipboard ───
     Mod+V                               { spawn "cliphist-gui"; }
@@ -137,6 +138,4 @@ binds {
     CTRL+ALT+Delete                     { quit; } // Also quits Niri
     Mod+Shift+P                         { power-off-monitors; } // Turn off screens (useful for OLED or privacy)
     Mod+O                               repeat=false { toggle-overview; }
-    // ─── Screenshots (hyprshot) ───
-    Mod+Shift+S        hotkey-overlay-title="Screenshot: Region" { spawn "hyprshot" "-m" "region"; }
 }
