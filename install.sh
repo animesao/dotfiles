@@ -148,6 +148,39 @@ setup_configs() {
     echo ""
 }
 
+# Install cliphist (custom clipboard manager)
+install_cliphist() {
+    echo -e "${CYAN}━━━ Installing cliphist ━━━${NC}"
+    
+    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.config/cliphist"
+    
+    cp "$DOTFILES_DIR/cliphist/cliphist.py" "$HOME/.local/bin/cliphist"
+    cp "$DOTFILES_DIR/cliphist/cliphist-gui.py" "$HOME/.local/bin/cliphist-gui"
+    chmod +x "$HOME/.local/bin/cliphist" "$HOME/.local/bin/cliphist-gui"
+    
+    # Create default config
+    if [ ! -f "$HOME/.config/cliphist/config.json" ]; then
+        cat > "$HOME/.config/cliphist/config.json" << 'EOF'
+{
+  "max_items": 500,
+  "max_display_len": 80,
+  "ignore_duplicates": true
+}
+EOF
+    fi
+    
+    # Install systemd service
+    mkdir -p "$HOME/.config/systemd/user"
+    cp "$DOTFILES_DIR/cliphist/cliphist.service" "$HOME/.config/systemd/user/cliphist.service"
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable --now cliphist.service 2>/dev/null || true
+    
+    info "cliphist installed to ~/.local/bin/"
+    info "Keybind: Mod+V"
+    echo ""
+}
+
 # Set fish as default shell
 setup_shell() {
     if [ "$SHELL" != "/usr/bin/fish" ]; then
@@ -183,6 +216,12 @@ main() {
     read -p "Setup config symlinks? (y/N): " setup_cfgs
     if [[ "$setup_cfgs" =~ ^[Yy]$ ]]; then
         setup_configs
+    fi
+    
+    # Install cliphist
+    read -p "Install cliphist (clipboard manager)? (y/N): " install_clip
+    if [[ "$install_clip" =~ ^[Yy]$ ]]; then
+        install_cliphist
     fi
     
     # Setup shell
