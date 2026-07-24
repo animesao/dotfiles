@@ -154,7 +154,11 @@ install_cliphist() {
     
     mkdir -p "$HOME/.local/bin"
     mkdir -p "$HOME/.config/cliphist"
+    mkdir -p "$HOME/.config/systemd/user"
+    mkdir -p "$HOME/.config/fish/conf.d"
+    mkdir -p "$HOME/.config/environment.d"
     
+    # Install scripts
     cp "$DOTFILES_DIR/cliphist/cliphist.py" "$HOME/.local/bin/cliphist"
     cp "$DOTFILES_DIR/cliphist/cliphist-gui.py" "$HOME/.local/bin/cliphist-gui"
     chmod +x "$HOME/.local/bin/cliphist" "$HOME/.local/bin/cliphist-gui"
@@ -171,13 +175,22 @@ EOF
     fi
     
     # Install systemd service
-    mkdir -p "$HOME/.config/systemd/user"
     cp "$DOTFILES_DIR/cliphist/cliphist.service" "$HOME/.config/systemd/user/cliphist.service"
     systemctl --user daemon-reload 2>/dev/null || true
     systemctl --user enable --now cliphist.service 2>/dev/null || true
     
+    # Add ~/.local/bin to PATH (fish)
+    if [ ! -f "$HOME/.config/fish/conf.d/path.fish" ]; then
+        echo 'fish_add_path -g ~/.local/bin' > "$HOME/.config/fish/conf.d/path.fish"
+    fi
+    
+    # Add ~/.local/bin to PATH (systemd/niri)
+    if [ ! -f "$HOME/.config/environment.d/path.conf" ]; then
+        echo 'PATH="${HOME}/.local/bin:${PATH}"' > "$HOME/.config/environment.d/path.conf"
+    fi
+    
     info "cliphist installed to ~/.local/bin/"
-    info "Keybind: Mod+V"
+    info "Keybind: Mod+V → cliphist-gui"
     echo ""
 }
 
