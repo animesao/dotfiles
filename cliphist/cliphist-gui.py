@@ -437,6 +437,7 @@ class Window(QWidget):
             if self.tab == "text" and c.startswith("[image:"): continue
             w = ItemWidget(c, item.get("timestamp", ""), p, idx)
             w.mousePressEvent = lambda e, i=idx: self._select(i)
+            w.mouseDoubleClickEvent = lambda e, i=idx: (self._select(i), self._copy())
             self.list_lay.insertWidget(self.list_lay.count() - 1, w)
             self.items.append(w); self.filtered.append(item); idx += 1
         self.count.setText(str(len(self.items)))
@@ -461,6 +462,7 @@ class Window(QWidget):
                 except: pass
         else: set_clip(c)
         self._flash("Copied", GREEN)
+        QTimer.singleShot(200, self.hide)
 
     def _pin(self):
         if self.sel >= len(self.filtered): return
