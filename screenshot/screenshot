@@ -1,0 +1,213 @@
+#!/bin/bash
+# screenshot — Wayland screenshot utility for niri
+# https://github.com/animesao/dotfiles/tree/main/screenshot
+
+set -euo pipefail
+
+# ─── Paths ───
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/screenshot/config"
+
+# ─── Load config ───
+load_config() {
+    # Defaults
+    SAVE_DIR="${SCREENSHOT_DIR:-$HOME/Pictures/screenshots}"
+    FILENAME_FORMAT="screenshot_%Y%m%d_%H%M%S.png"
+    AUTO_COPY=true
+    NOTIFY=true
+    NOTIFY_TIMEOUT=3000
+    EDITOR="satty"
+    EDITOR_ARGS="--filename"
+    TIMER_DEFAULT=3
+    HISTORY_ENABLED=true
+    HISTORY_MAX=100
+
+    # Override with config file
+    if [ -f "$CONFIG" ]; then
+        # shellcheck source=/dev/null
+        source "$CONFIG"
+    fi
+}
+
+# ─── Load libraries ───
+load_libs() {
+    for lib in "$SCRIPT_DIR"/lib/*.sh; do
+        [ -f "$lib" ] || continue
+        # shellcheck source=/dev/null
+        source "$lib"
+    done
+}
+
+# ─── Initialize ───
+load_config
+load_libs
+
+# ─── Commands ───
+
+cmd_region() {
+    local data
+    data=$(capture_region) || { print_err "Region selection cancelled"; return 1; }
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+    send_notify "$filepath"
+    print_ok "Saved: $filepath"
+}
+
+cmd_window() {
+    local data
+    data=$(capture_window) || { print_err "Window capture failed"; return 1; }
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+    send_notify "$filepath"
+    print_ok "Saved: $filepath"
+}
+
+cmd_screen() {
+    local data
+    data=$(capture_screen) || { print_err "Screen capture failed"; return 1; }
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+    send_notify "$filepath"
+    print_ok "Saved: $filepath"
+}
+
+cmd_output() {
+    local data
+    data=$(capture_output) || { print_err "Output capture failed"; return 1; }
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+    send_notify "$filepath"
+    print_ok "Saved: $filepath"
+}
+
+cmd_timer() {
+    local seconds="${1:-$TIMER_DEFAULT}"
+    local data
+    data=$(capture_delay "$seconds") || return 1
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+    send_notify "$filepath"
+    print_ok "Saved: $filepath"
+}
+
+cmd_edit() {
+    local data
+    data=$(capture_region) || { print_err "Region selection cancelled"; return 1; }
+
+    local filepath
+    filepath=$(make_filepath)
+    save_image "$data" "$filepath"
+
+    [ "$AUTO_COPY" = "true" ] && copy_clipboard "$filepath"
+    [ "$HISTORY_ENABLED" = "true" ] && history_add "$filepath"
+
+    if command -v "$EDITOR" &>/dev/null; then
+        print_info "Opening editor..."
+        open_editor "$filepath"
+    else
+        send_notify "$filepath"
+        print_ok "Saved: $filepath (editor not found: $EDITOR)"
+    fi
+}
+
+cmd_history() {
+    local cmd="${1:-list}"
+    local count="${2:-10}"
+
+    case "$cmd" in
+        list)   history_list "$count" ;;
+        last)   history_last ;;
+        browse) history_browse ;;
+        *)      history_list "$count" ;;
+    esac
+}
+
+cmd_dir() {
+    echo "${SAVE_DIR:-$HOME/Pictures/screenshots}"
+}
+
+cmd_config() {
+    if [ ! -f "$CONFIG" ]; then
+        mkdir -p "$(dirname "$CONFIG")"
+        cp "$SCRIPT_DIR/screenshot.conf" "$CONFIG"
+        print_ok "Config created: $CONFIG"
+    else
+        echo "$CONFIG"
+    fi
+}
+
+# ─── Help ───
+cmd_help() {
+    cat << 'EOF'
+screenshot — Wayland screenshot utility for niri
+
+Usage: screenshot <command> [args]
+
+Commands:
+  region           Select area to capture (default)
+  window           Capture focused window
+  screen           Capture all outputs
+  output           Capture focused output
+  timer [N]        Capture after N seconds (default: 3)
+  edit             Capture area and open in editor
+  history [cmd]    Screenshot history
+    history list [N]    Show last N screenshots
+    history last        Get last screenshot path
+    history browse      Interactive browse (fzf)
+  dir              Print save directory
+  config           Show/create config file
+  help             Show this help
+
+Keybinds (niri):
+  Ctrl+Shift+1     → region
+  Ctrl+Shift+2     → screen
+  Ctrl+Shift+3     → window
+  Mod+Shift+S      → edit
+
+Config: ~/.config/screenshot/config
+EOF
+}
+
+# ─── Main ───
+case "${1:-region}" in
+    region)       cmd_region ;;
+    window)       cmd_window ;;
+    screen)       cmd_screen ;;
+    output)       cmd_output ;;
+    timer)        cmd_timer "$2" ;;
+    edit)         cmd_edit ;;
+    history)      cmd_history "${2:-list}" "${3:-10}" ;;
+    dir)          cmd_dir ;;
+    config)       cmd_config ;;
+    help|-h|--help) cmd_help ;;
+    *)
+        print_err "Unknown command: $1"
+        cmd_help
+        exit 1
+        ;;
+esac

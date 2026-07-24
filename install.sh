@@ -262,6 +262,14 @@ main() {
             bash "$DOTFILES_DIR/sddm/install.sh"
         fi
     fi
+
+    # Install screenshot utility
+    if [ -f "$DOTFILES_DIR/screenshot/install.sh" ]; then
+        read -p "Install screenshot utility? (y/N): " install_screenshot
+        if [[ "$install_screenshot" =~ ^[Yy]$ ]]; then
+            bash "$DOTFILES_DIR/screenshot/install.sh"
+        fi
+    fi
     
     echo ""
     info "Installation complete!"
