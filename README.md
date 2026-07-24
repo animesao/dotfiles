@@ -43,3 +43,4 @@ After running the installer:
 2. Select niri as your session in the login screen
 3. Adjust display settings in noctalia if needed
 4. Install AUR packages manually if yay is not available
+# dotfiles
