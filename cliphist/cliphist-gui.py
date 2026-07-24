@@ -582,8 +582,18 @@ class Window(QWidget):
                 if self.isVisible(): self._refresh()
             self._last = c
 
+    def _open_image(self):
+        if self.sel >= len(self.filtered): return
+        c = self.filtered[self.sel].get("content", "")
+        if c.startswith("[image:"):
+            img_path = c.replace("[image:", "").replace("]", "")
+            if os.path.exists(img_path):
+                viewer = ImageViewer(img_path, self)
+                viewer.exec()
+
     def keyPressEvent(self, e):
         k = e.key()
+        mods = e.modifiers()
         if k == Qt.Key.Key_Escape: self.hide()
         elif k == Qt.Key.Key_Down:
             if self.sel < len(self.filtered)-1: self._sel(self.sel+1); self.scroll.ensureWidgetVisible(self.items[self.sel])
@@ -593,6 +603,7 @@ class Window(QWidget):
         elif k == Qt.Key.Key_PageUp: self._sel(max(self.sel-10, 0))
         elif k == Qt.Key.Key_Home: self._sel(0)
         elif k == Qt.Key.Key_End: self._sel(max(0, len(self.filtered)-1))
+        elif k == Qt.Key.Key_Plus and mods & Qt.KeyboardModifier.ControlModifier: self._open_image()
         else: super().keyPressEvent(e)
 
 
