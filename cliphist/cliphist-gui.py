@@ -17,35 +17,43 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect, QScrollArea
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QKeySequence, QPainter, QShortcut, QPalette
+from PyQt6.QtGui import QColor, QKeySequence, QPainter, QShortcut, QPalette, QFont
 
 DATA_DIR = Path.home() / ".local" / "share" / "cliphist"
 HISTORY_FILE = DATA_DIR / "history.json"
 IMAGES_DIR = DATA_DIR / "images"
 
-# ─── Gruvbox palette (from noctalia colors.json) ───
-# Surface hierarchy: bg < surface < surfaceVariant
-# Accent hierarchy: primary (green), secondary (yellow), tertiary (blue)
-# Text hierarchy: onSurface (bright), onSurfaceVariant (dim), outline (faint)
+# ─── Gruvbox (noctalia colors.json) ───
+BG           = "#1d2021"
+SURFACE      = "#282828"
+SURFACE_HI   = "#3c3836"
+HOVER        = "#504945"
+BORDER       = "#57514e"
 
-BG           = "#1d2021"   # deepest background
-SURFACE      = "#282828"   # main surface
-SURFACE_HI   = "#3c3836"   # elevated surface
-HOVER        = "#504945"   # hover state
-BORDER       = "#57514e"   # borders, dividers
+FG           = "#ebdbb2"
+FG_DIM       = "#a89984"
+FG_FAINT     = "#7c6f64"
 
-FG           = "#ebdbb2"   # primary text
-FG_DIM       = "#a89984"   # secondary text
-FG_FAINT     = "#7c6f64"   # tertiary/disabled
-
-GREEN        = "#b8bb26"   # primary accent
-YELLOW       = "#fabd2f"   # secondary accent
-BLUE         = "#83a598"   # tertiary accent
-RED          = "#fb4934"   # error/delete
-AQUA         = "#8ec07c"   # special
+GREEN        = "#b8bb26"
+YELLOW       = "#fabd2f"
+BLUE         = "#83a598"
+RED          = "#fb4934"
+AQUA         = "#8ec07c"
 
 RADIUS       = 12
 RADIUS_SM    = 8
+
+# ─── Fonts ───
+FONT_UI = QFont("Adwaita Sans", 11)
+FONT_UI_BOLD = QFont("Adwaita Sans", 11)
+FONT_UI_BOLD.setBold(True)
+FONT_MONO = QFont("monospace", 11)
+FONT_MONO.setStretch(90)
+FONT_SMALL = QFont("Adwaita Sans", 9)
+FONT_SMALL_BOLD = QFont("Adwaita Sans", 9)
+FONT_SMALL_BOLD.setBold(True)
+FONT_BADGE = QFont("Adwaita Sans", 9)
+FONT_BADGE.setBold(True)
 
 
 def ensure_dirs():
@@ -91,27 +99,34 @@ class ItemWidget(QWidget):
         self._selected = False
         self._hover = False
 
-        self.setFixedHeight(44)
+        self.setFixedHeight(42)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 0, 10, 0)
         lay.setSpacing(10)
 
-        # Number badge — noctalia capsule style
+        # Number badge
         self.badge = QLabel(str(index + 1))
         self.badge.setFixedSize(22, 22)
         self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.badge.setFont(FONT_BADGE)
         self._style_badge()
 
         # Content
         is_img = content.startswith("[image:")
-        text = "Image" if is_img else content.replace("\n", " ").replace("\r", "")
-        text = text[:58] + "…" if len(text) > 58 else text
+        if is_img:
+            text = "Image"
+            color = AQUA
+        else:
+            text = content.replace("\n", " ").replace("\r", "")
+            text = text[:55] + "…" if len(text) > 55 else text
+            color = FG
 
         self.label = QLabel(text)
-        self.label.setStyleSheet(f"color: {FG}; font-size: 13px; background: transparent;")
-        self.label.setMaximumWidth(280)
+        self.label.setFont(FONT_UI)
+        self.label.setStyleSheet(f"color: {color}; background: transparent;")
+        self.label.setMaximumWidth(260)
 
         # Timestamp
         ts = ""
@@ -124,18 +139,21 @@ class ItemWidget(QWidget):
                 pass
 
         self.time = QLabel(ts)
-        self.time.setStyleSheet(f"color: {FG_FAINT}; font-size: 11px; background: transparent;")
+        self.time.setFont(FONT_SMALL)
+        self.time.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
 
-        # Pin marker
-        self.pin = QLabel()
-        self.pin.setFixedSize(6, 6)
-        self.pin.setStyleSheet(f"background: {YELLOW}; border-radius: 3px;") if pinned else \
-            self.pin.setStyleSheet("background: transparent;")
+        # Pin dot
+        self.dot = QLabel()
+        self.dot.setFixedSize(5, 5)
+        if pinned:
+            self.dot.setStyleSheet(f"background: {YELLOW}; border-radius: 2px;")
+        else:
+            self.dot.setStyleSheet("background: transparent;")
 
         lay.addWidget(self.badge)
         lay.addWidget(self.label, 1)
         lay.addWidget(self.time)
-        lay.addWidget(self.pin)
+        lay.addWidget(self.dot)
 
     def _style_badge(self):
         if self._selected:
@@ -143,15 +161,12 @@ class ItemWidget(QWidget):
                 background: {GREEN};
                 color: {BG};
                 border-radius: 11px;
-                font-size: 11px;
-                font-weight: bold;
             """)
         else:
             self.badge.setStyleSheet(f"""
                 background: {SURFACE_HI};
                 color: {FG_DIM};
                 border-radius: 11px;
-                font-size: 10px;
             """)
 
     def set_selected(self, s: bool):
@@ -186,27 +201,28 @@ class Preview(QWidget):
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 12, 12, 12)
-        lay.setSpacing(6)
+        lay.setSpacing(8)
 
         title = QLabel("PREVIEW")
-        title.setStyleSheet(f"color: {FG_FAINT}; font-size: 10px; font-weight: bold; background: transparent;")
+        title.setFont(FONT_SMALL_BOLD)
+        title.setStyleSheet(f"color: {FG_FAINT}; background: transparent; letter-spacing: 1px;")
         lay.addWidget(title)
 
         self.body = QLabel("Select an item")
         self.body.setWordWrap(True)
         self.body.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.body.setFont(FONT_MONO)
         self.body.setStyleSheet(f"""
             color: {FG_DIM};
-            font-size: 12px;
             background: {BG};
             border-radius: {RADIUS_SM}px;
             padding: 10px;
-            font-family: monospace;
         """)
         lay.addWidget(self.body, 1)
 
         self.meta = QLabel("")
-        self.meta.setStyleSheet(f"color: {FG_FAINT}; font-size: 10px; background: transparent;")
+        self.meta.setFont(FONT_SMALL)
+        self.meta.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
         lay.addWidget(self.meta)
 
     def show_content(self, content: str):
@@ -214,7 +230,6 @@ class Preview(QWidget):
             self.body.setText("Image")
             self.body.setStyleSheet(f"""
                 color: {AQUA};
-                font-size: 12px;
                 background: {BG};
                 border-radius: {RADIUS_SM}px;
                 padding: 10px;
@@ -224,11 +239,9 @@ class Preview(QWidget):
             self.body.setText(content[:400])
             self.body.setStyleSheet(f"""
                 color: {FG_DIM};
-                font-size: 12px;
                 background: {BG};
                 border-radius: {RADIUS_SM}px;
                 padding: 10px;
-                font-family: monospace;
             """)
             lines = content.count("\n") + 1
             self.meta.setText(f"{len(content)} chars · {lines} lines")
@@ -237,7 +250,6 @@ class Preview(QWidget):
         self.body.setText("Select an item")
         self.body.setStyleSheet(f"""
             color: {FG_FAINT};
-            font-size: 12px;
             background: {BG};
             border-radius: {RADIUS_SM}px;
             padding: 10px;
@@ -251,25 +263,35 @@ class Pill(QPushButton):
         super().__init__(text)
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(28)
+        self.setFont(FONT_SMALL_BOLD)
+        self.setFixedHeight(26)
         self._style(False)
 
     def _style(self, checked):
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: {"transparent" if not checked else GREEN};
-                color: {"FG_FAINT" if not checked else BG};
-                border: none;
-                border-radius: {RADIUS_SM}px;
-                padding: 4px 14px;
-                font-size: 11px;
-                {"font-weight: bold;" if checked else ""}
-            }}
-            QPushButton:hover {{
-                background: {"HOVER" if not checked else GREEN};
-                color: {FG};
-            }}
-        """)
+        if checked:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: {GREEN};
+                    color: {BG};
+                    border: none;
+                    border-radius: 13px;
+                    padding: 0 14px;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent;
+                    color: {FG_FAINT};
+                    border: none;
+                    border-radius: 13px;
+                    padding: 0 14px;
+                }}
+                QPushButton:hover {{
+                    color: {FG_DIM};
+                    background: {HOVER};
+                }}
+            """)
 
     def nextCheckState(self):
         super().nextCheckState()
@@ -299,20 +321,20 @@ class Window(QWidget):
             Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(620, 500)
+        self.setFixedSize(600, 480)
 
-        # Shadow layer
+        # Shadow
         shadow_frame = QFrame(self)
-        shadow_frame.setGeometry(4, 4, 612, 492)
+        shadow_frame.setGeometry(4, 4, 592, 472)
         eff = QGraphicsDropShadowEffect()
-        eff.setBlurRadius(32)
-        eff.setOffset(0, 6)
+        eff.setBlurRadius(40)
+        eff.setOffset(0, 8)
         c = QColor(BG)
-        c.setAlpha(180)
+        c.setAlpha(200)
         eff.setColor(c)
         shadow_frame.setGraphicsEffect(eff)
 
-        # Main surface
+        # Surface
         self.surface = QFrame(self)
         self.surface.setStyleSheet(f"""
             QFrame {{
@@ -335,30 +357,32 @@ class Window(QWidget):
         hdr.setSpacing(8)
 
         dot = QLabel()
-        dot.setFixedSize(10, 10)
-        dot.setStyleSheet(f"background: {GREEN}; border-radius: 5px;")
+        dot.setFixedSize(8, 8)
+        dot.setStyleSheet(f"background: {GREEN}; border-radius: 4px;")
         hdr.addWidget(dot)
 
         title = QLabel("Clipboard")
-        title.setStyleSheet(f"color: {FG}; font-size: 15px; font-weight: bold; background: transparent;")
+        title.setFont(FONT_UI_BOLD)
+        title.setStyleSheet(f"color: {FG}; background: transparent;")
         hdr.addWidget(title)
 
         hdr.addStretch()
 
         self.count = QLabel("0")
-        self.count.setStyleSheet(f"color: {FG_FAINT}; font-size: 12px; background: transparent;")
+        self.count.setFont(FONT_UI)
+        self.count.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
         hdr.addWidget(self.count)
 
         close = QPushButton("×")
-        close.setFixedSize(24, 24)
+        close.setFixedSize(22, 22)
         close.setCursor(Qt.CursorShape.PointingHandCursor)
+        close.setFont(FONT_UI)
         close.setStyleSheet(f"""
             QPushButton {{
                 background: transparent;
                 color: {FG_FAINT};
                 border: none;
-                border-radius: 12px;
-                font-size: 14px;
+                border-radius: 11px;
             }}
             QPushButton:hover {{
                 background: {RED};
@@ -383,25 +407,21 @@ class Window(QWidget):
         sb.setContentsMargins(10, 0, 10, 0)
         sb.setSpacing(8)
 
-        magnifier = QLabel(">")
-        magnifier.setFixedSize(18, 18)
+        magnifier = QLabel("/")
+        magnifier.setFont(FONT_MONO)
+        magnifier.setFixedSize(16, 16)
         magnifier.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        magnifier.setStyleSheet(f"""
-            color: {FG_FAINT};
-            font-size: 11px;
-            font-family: monospace;
-            background: transparent;
-        """)
+        magnifier.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
         sb.addWidget(magnifier)
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("search...")
+        self.search.setFont(FONT_UI)
         self.search.setStyleSheet(f"""
             QLineEdit {{
                 background: transparent;
                 color: {FG};
                 border: none;
-                font-size: 13px;
                 padding: 6px 0;
             }}
             QLineEdit::placeholder {{
@@ -433,7 +453,7 @@ class Window(QWidget):
         body = QHBoxLayout()
         body.setSpacing(10)
 
-        # List container
+        # List
         list_frame = QFrame()
         list_frame.setStyleSheet(f"""
             QFrame {{
@@ -453,7 +473,7 @@ class Window(QWidget):
             QScrollArea {{ background: transparent; border: none; }}
             QScrollBar:vertical {{
                 background: transparent;
-                width: 5px;
+                width: 4px;
             }}
             QScrollBar::handle:vertical {{
                 background: {HOVER};
@@ -525,23 +545,22 @@ class Window(QWidget):
     def _act(self, text, color, cb):
         b = QPushButton(text)
         b.setCursor(Qt.CursorShape.PointingHandCursor)
-        b.setFixedHeight(28)
+        b.setFont(FONT_SMALL_BOLD)
+        b.setFixedHeight(26)
         b.setStyleSheet(f"""
             QPushButton {{
                 background: transparent;
                 color: {color};
-                border: 1px solid {color}44;
-                border-radius: {RADIUS_SM}px;
-                padding: 4px 14px;
-                font-size: 11px;
-                font-weight: bold;
+                border: 1px solid {color}33;
+                border-radius: 13px;
+                padding: 0 14px;
             }}
             QPushButton:hover {{
-                background: {color}22;
-                border: 1px solid {color}66;
+                background: {color}18;
+                border: 1px solid {color}55;
             }}
             QPushButton:pressed {{
-                background: {color}33;
+                background: {color}25;
             }}
         """)
         b.clicked.connect(cb)
@@ -586,7 +605,7 @@ class Window(QWidget):
             self.filtered.append(item)
             idx += 1
 
-        self.count.setText(f"{len(self.items)}")
+        self.count.setText(str(len(self.items)))
 
         if self.items:
             self._select(0)
@@ -647,9 +666,9 @@ class Window(QWidget):
 
     def _flash(self, msg, color):
         self.count.setText(msg)
-        self.count.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
+        self.count.setStyleSheet(f"color: {color}; font-weight: bold; background: transparent;")
         QTimer.singleShot(1500, lambda: self.count.setStyleSheet(
-            f"color: {FG_FAINT}; font-size: 12px; background: transparent;"
+            f"color: {FG_FAINT}; background: transparent;"
         ))
 
     def show_window(self):
