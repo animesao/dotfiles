@@ -66,7 +66,7 @@ def get_clip() -> str:
 
 
 def set_clip(t):
-    try: subprocess.run(["wl-copy"], input=t.encode(), check=True, timeout=2)
+    try: subprocess.run(["wl-copy", "-t", "text/plain"], input=t.encode(), check=True, timeout=2)
     except: pass
 
 
@@ -306,11 +306,24 @@ class Window(QWidget):
             b.setStyleSheet(f"QPushButton {{ background: transparent; color: {color}; border: 1px solid {color}30; border-radius: 13px; padding: 0 12px; }} QPushButton:hover {{ background: {color}12; border: 1px solid {color}50; }} QPushButton:pressed {{ background: {color}20; }}")
             return b
 
-        acts.addWidget(actbtn("Copy", GREEN, I.copy(GREEN)))
-        acts.addWidget(actbtn("Pin", YELLOW, I.pin(YELLOW)))
-        acts.addWidget(actbtn("Delete", RED, I.trash(RED)))
+        btn_copy = actbtn("Copy", GREEN, I.copy(GREEN))
+        btn_copy.clicked.connect(self._copy)
+        acts.addWidget(btn_copy)
+
+        btn_pin = actbtn("Pin", YELLOW, I.pin(YELLOW))
+        btn_pin.clicked.connect(self._pin)
+        acts.addWidget(btn_pin)
+
+        btn_del = actbtn("Delete", RED, I.trash(RED))
+        btn_del.clicked.connect(self._del)
+        acts.addWidget(btn_del)
+
         acts.addStretch()
-        acts.addWidget(actbtn("Clear", FG_FAINT, I.eraser(FG_FAINT)))
+
+        btn_clear = actbtn("Clear", FG_FAINT, I.eraser(FG_FAINT))
+        btn_clear.clicked.connect(self._clear)
+        acts.addWidget(btn_clear)
+
         col.addLayout(acts)
 
         QShortcut(QKeySequence("Return"), self, self._copy)
