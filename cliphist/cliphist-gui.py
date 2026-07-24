@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 cliphist — clipboard history for Wayland
-Gruvbox theme, FontAwesome icons
+Gruvbox theme, custom SVG icons
 """
 
 import json
@@ -16,8 +16,11 @@ from PyQt6.QtWidgets import (
     QLineEdit, QLabel, QPushButton, QFrame,
     QGraphicsDropShadowEffect, QScrollArea
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF
-from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPainterPath, QShortcut, QPalette, QFont, QPen, QBrush
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF, QSize
+from PyQt6.QtGui import (
+    QColor, QKeySequence, QPainter, QPainterPath,
+    QShortcut, QPalette, QPixmap, QIcon
+)
 
 DATA_DIR = Path.home() / ".local" / "share" / "cliphist"
 HISTORY_FILE = DATA_DIR / "history.json"
@@ -36,6 +39,8 @@ YELLOW   = "#fabd2f"
 BLUE     = "#83a598"
 RED      = "#fb4934"
 AQUA     = "#8ec07c"
+PURPLE   = "#d3869b"
+ORANGE   = "#fe8019"
 
 R = 12
 R_SM = 8
@@ -69,134 +74,107 @@ def set_clip(t):
 
 
 # ─── SVG Icons ───
-class Icon:
-    @staticmethod
-    def copy(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <path d="M8 1H4a1 1 0 00-1 1v4" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round"/>
-            <rect x="5" y="3" width="8" height="10" rx="1.5" stroke="{color}" fill="none" stroke-width="1.5"/>
-        ''', color, size)
+def svg_icon(svg_str: str, size: int = 16) -> QIcon:
+    """Create QIcon from SVG string"""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24">{svg_str}</svg>'
+    pixmap.loadFromData(svg.encode())
+    return QIcon(pixmap)
 
-    @staticmethod
-    def pin(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <circle cx="8" cy="4" r="2" stroke="{color}" fill="none" stroke-width="1.5"/>
-            <path d="M8 6v6M6 10h4" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round"/>
-        ''', color, size)
 
+class Icons:
     @staticmethod
-    def trash(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <path d="M3 4h10M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M4 4l.7 9.1a1 1 0 001 .9h4.6a1 1 0 001-.9L12 4" stroke="{color}" fill="none" stroke-width="1.5"/>
-        ''', color, size)
+    def copy(color=FG_DIM):
+        return svg_icon(f'''
+            <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="{color}" stroke-width="1.8"/>
+            <path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''')
 
     @staticmethod
-    def search(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <circle cx="7" cy="7" r="4" stroke="{color}" fill="none" stroke-width="1.5"/>
-            <path d="M10 10l3 3" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round"/>
-        ''', color, size)
+    def pin(color=FG_DIM):
+        return svg_icon(f'''
+            <path d="M12 2v8M9 10l3 3 3-3" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="6" r="3" fill="none" stroke="{color}" stroke-width="1.8"/>
+            <path d="M5 14l7-2 7 2" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 14v6" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''')
 
     @staticmethod
-    def close(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <path d="M4 4l8 8M12 4l-8 8" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round"/>
-        ''', color, size)
+    def trash(color=FG_DIM):
+        return svg_icon(f'''
+            <path d="M4 7h16M10 11v6M14 11v6" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" fill="none" stroke="{color}" stroke-width="1.8"/>
+            <path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''')
 
     @staticmethod
-    def eraser(color=FG_DIM, size=16):
-        return Icon._svg(f'''
-            <path d="M5 13h6M3 9l4-7h2l4 7-5 5H4a1 1 0 01-1-1V10a1 1 0 011-1z" stroke="{color}" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        ''', color, size)
+    def search(color=FG_DIM):
+        return svg_icon(f'''
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="{color}" stroke-width="1.8"/>
+            <path d="M15.5 15.5L20 20" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+        ''')
 
     @staticmethod
-    def clipboard(color=FG, size=18):
-        return Icon._svg(f'''
-            <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="{color}" fill="none" stroke-width="1.5"/>
-            <path d="M6 2V1.5A.5.5 0 016.5 1h3a.5.5 0 01.5.5V2" stroke="{color}" fill="none" stroke-width="1.5"/>
-        ''', color, size)
+    def close(color=FG_DIM):
+        return svg_icon(f'''
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''')
 
     @staticmethod
-    def _svg(path, color, size):
-        svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 16 16">{path}</svg>'''
-        pixmap = QPixmap()
-        pixmap.loadFromData(svg.encode())
-        return QIcon(pixmap)
+    def eraser(color=FG_DIM):
+        return svg_icon(f'''
+            <path d="M20 20H9L3 14a1 1 0 010-1.4l8.6-8.6a2 2 0 012.8 0l5.6 5.6a2 2 0 010 2.8L15 20" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 12l8 8" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''')
 
+    @staticmethod
+    def clipboard(color=FG):
+        return svg_icon(f'''
+            <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="{color}" stroke-width="1.8"/>
+            <path d="M8 2v4M16 2v4M4 10h16" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round"/>
+        ''', 20)
 
-from PyQt6.QtGui import QPixmap, QIcon
-
-
-# ─── Icon Button ───
-class IconButton(QPushButton):
-    def __init__(self, icon_fn, tooltip="", color=FG_DIM, bg_color=None, size=32):
-        super().__init__()
-        self.icon_fn = icon_fn
-        self.tooltip_text = tooltip
-        self.color = color
-        self.bg_color = bg_color
-        self._hover = False
-        self._pressed = False
-
-        self.setFixedSize(size, size)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip(tooltip)
-        self.setIcon(icon_fn(color, 16))
-        self.setIconSize(QPixmap(16, 16).size())
-
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: {size // 2}px;
-            }}
-            QPushButton:hover {{
-                background: {HOVER};
-            }}
-            QPushButton:pressed {{
-                background: {SURF_HI};
-            }}
-        """)
-
-    def set_color(self, color):
-        self.color = color
-        self.setIcon(self.icon_fn(color, 16))
+    @staticmethod
+    def check(color=GREEN):
+        return svg_icon(f'''
+            <path d="M5 12l5 5L19 7" fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ''')
 
 
 # ─── Action Button ───
 class ActionButton(QPushButton):
-    def __init__(self, text, color=FG_DIM, icon_fn=None):
+    def __init__(self, text, color=FG_DIM, icon=None):
         super().__init__()
         self.color = color
-
-        if icon_fn:
-            self.setIcon(icon_fn(color, 14))
-            self.setIconSize(QPixmap(14, 14).size())
-            self.setText(f"  {text}")
-        else:
-            self.setText(text)
-
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QSize(14, 14))
+        self.setText(text)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(28)
+        self.setFixedHeight(30)
+        self._update_style(False)
         self.setStyleSheet(f"""
             QPushButton {{
                 background: transparent;
                 color: {color};
                 border: 1px solid {color}30;
-                border-radius: 14px;
-                padding: 0 14px;
-                font-size: 11px;
+                border-radius: 15px;
+                padding: 0 16px;
+                font-size: 12px;
                 font-weight: 600;
             }}
             QPushButton:hover {{
-                background: {color}15;
+                background: {color}12;
                 border: 1px solid {color}50;
             }}
             QPushButton:pressed {{
-                background: {color}22;
+                background: {color}20;
             }}
         """)
+
+    def _update_style(self, hover):
+        pass
 
 
 # ─── Item Widget ───
@@ -208,7 +186,7 @@ class ItemWidget(QWidget):
         self._sel = False
         self._hov = False
 
-        self.setFixedHeight(40)
+        self.setFixedHeight(38)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         lay = QHBoxLayout(self)
@@ -224,11 +202,11 @@ class ItemWidget(QWidget):
         # Content
         is_img = content.startswith("[image:")
         text = "Image" if is_img else content.replace("\n", " ").replace("\r", "")
-        text = text[:52] + "…" if len(text) > 52 else text
+        text = text[:50] + "…" if len(text) > 50 else text
 
         self.label = QLabel(text)
         self.label.setStyleSheet(f"color: {AQUA if is_img else FG}; background: transparent; font-size: 12px;")
-        self.label.setMaximumWidth(250)
+        self.label.setMaximumWidth(240)
 
         # Time
         ts_str = ""
@@ -254,9 +232,20 @@ class ItemWidget(QWidget):
 
     def _style_badge(self):
         if self._sel:
-            self.badge.setStyleSheet(f"background: {GREEN}; color: {BG}; border-radius: 10px; font-size: 10px; font-weight: bold;")
+            self.badge.setStyleSheet(f"""
+                background: {GREEN};
+                color: {BG};
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
         else:
-            self.badge.setStyleSheet(f"background: {SURF_HI}; color: {FG_DIM}; border-radius: 10px; font-size: 9px;")
+            self.badge.setStyleSheet(f"""
+                background: {SURF_HI};
+                color: {FG_DIM};
+                border-radius: 10px;
+                font-size: 9px;
+            """)
 
     def set_selected(self, s):
         self._sel = s
@@ -295,7 +284,14 @@ class Preview(QWidget):
         self.body = QLabel("Select item")
         self.body.setWordWrap(True)
         self.body.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.body.setStyleSheet(f"color: {FG_DIM}; font-size: 11px; background: {BG}; border-radius: {R_SM}px; padding: 10px; font-family: monospace;")
+        self.body.setStyleSheet(f"""
+            color: {FG_DIM};
+            font-size: 11px;
+            background: {BG};
+            border-radius: {R_SM}px;
+            padding: 10px;
+            font-family: monospace;
+        """)
         lay.addWidget(self.body, 1)
 
         self.meta = QLabel("")
@@ -305,16 +301,35 @@ class Preview(QWidget):
     def show_content(self, c):
         if c.startswith("[image:"):
             self.body.setText("Image")
-            self.body.setStyleSheet(f"color: {AQUA}; font-size: 11px; background: {BG}; border-radius: {R_SM}px; padding: 10px;")
+            self.body.setStyleSheet(f"""
+                color: {AQUA};
+                font-size: 11px;
+                background: {BG};
+                border-radius: {R_SM}px;
+                padding: 10px;
+            """)
             self.meta.setText("image/png")
         else:
             self.body.setText(c[:400])
-            self.body.setStyleSheet(f"color: {FG_DIM}; font-size: 11px; background: {BG}; border-radius: {R_SM}px; padding: 10px; font-family: monospace;")
+            self.body.setStyleSheet(f"""
+                color: {FG_DIM};
+                font-size: 11px;
+                background: {BG};
+                border-radius: {R_SM}px;
+                padding: 10px;
+                font-family: monospace;
+            """)
             self.meta.setText(f"{len(c)} chars · {c.count(chr(10))+1} lines")
 
     def clear(self):
         self.body.setText("Select item")
-        self.body.setStyleSheet(f"color: {FG_FAINT}; font-size: 11px; background: {BG}; border-radius: {R_SM}px; padding: 10px;")
+        self.body.setStyleSheet(f"""
+            color: {FG_FAINT};
+            font-size: 11px;
+            background: {BG};
+            border-radius: {R_SM}px;
+            padding: 10px;
+        """)
         self.meta.setText("")
 
 
@@ -328,18 +343,37 @@ class Pill(QPushButton):
         self._style(False)
 
     def _style(self, ch):
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: {"transparent" if not ch else GREEN};
-                color: {"FG_FAINT" if not ch else BG};
-                border: none; border-radius: 12px;
-                padding: 0 12px; font-size: 11px; {"font-weight: bold;" if ch else ""}
-            }}
-            QPushButton:hover {{ background: {"HOVER" if not ch else GREEN}; color: {FG}; }}
-        """)
+        if ch:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: {GREEN};
+                    color: {BG};
+                    border: none;
+                    border-radius: 12px;
+                    padding: 0 14px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent;
+                    color: {FG_FAINT};
+                    border: none;
+                    border-radius: 12px;
+                    padding: 0 14px;
+                    font-size: 11px;
+                }}
+                QPushButton:hover {{
+                    color: {FG_DIM};
+                    background: {HOVER};
+                }}
+            """)
 
     def nextCheckState(self):
-        super().nextCheckState(); self._style(self.isChecked())
+        super().nextCheckState()
+        self._style(self.isChecked())
 
 
 # ─── Window ───
@@ -358,7 +392,11 @@ class Window(QWidget):
         self._monitor()
 
     def _build(self):
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(580, 460)
 
@@ -366,74 +404,199 @@ class Window(QWidget):
         sf = QFrame(self)
         sf.setGeometry(4, 4, 572, 452)
         e = QGraphicsDropShadowEffect()
-        e.setBlurRadius(40); e.setOffset(0, 8)
-        c = QColor(BG); c.setAlpha(200); e.setColor(c)
+        e.setBlurRadius(40)
+        e.setOffset(0, 8)
+        c = QColor(BG)
+        c.setAlpha(200)
+        e.setColor(c)
         sf.setGraphicsEffect(e)
 
         # Surface
         self.surf = QFrame(self)
-        self.surf.setStyleSheet(f"QFrame {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: {R}px; }}")
+        self.surf.setStyleSheet(f"""
+            QFrame {{
+                background: {SURFACE};
+                border: 1px solid {BORDER};
+                border-radius: {R}px;
+            }}
+        """)
 
-        root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0); root.addWidget(self.surf)
-        col = QVBoxLayout(self.surf); col.setContentsMargins(14, 12, 14, 12); col.setSpacing(8)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(self.surf)
+
+        col = QVBoxLayout(self.surf)
+        col.setContentsMargins(14, 12, 14, 12)
+        col.setSpacing(8)
 
         # Header
-        hdr = QHBoxLayout(); hdr.setSpacing(8)
-        dot = QLabel(); dot.setFixedSize(8, 8); dot.setStyleSheet(f"background: {GREEN}; border-radius: 4px;"); hdr.addWidget(dot)
-        title = QLabel("Clipboard"); title.setStyleSheet(f"color: {FG}; font-size: 14px; font-weight: bold; background: transparent;"); hdr.addWidget(title)
+        hdr = QHBoxLayout()
+        hdr.setSpacing(8)
+
+        dot = QLabel()
+        dot.setFixedSize(8, 8)
+        dot.setStyleSheet(f"background: {GREEN}; border-radius: 4px;")
+        hdr.addWidget(dot)
+
+        title = QLabel("Clipboard")
+        title.setStyleSheet(f"color: {FG}; font-size: 14px; font-weight: bold; background: transparent;")
+        hdr.addWidget(title)
+
         hdr.addStretch()
-        self.count = QLabel("0"); self.count.setStyleSheet(f"color: {FG_FAINT}; font-size: 12px; background: transparent;"); hdr.addWidget(self.count)
-        x_btn = IconButton(Icon.close, "Close (Esc)", FG_FAINT, size=22)
+
+        self.count = QLabel("0")
+        self.count.setStyleSheet(f"color: {FG_FAINT}; font-size: 12px; background: transparent;")
+        hdr.addWidget(self.count)
+
+        x_btn = QPushButton()
+        x_btn.setIcon(Icons.close(FG_FAINT))
+        x_btn.setIconSize(QSize(14, 14))
+        x_btn.setFixedSize(24, 24)
+        x_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        x_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 12px;
+            }}
+            QPushButton:hover {{
+                background: {RED};
+            }}
+        """)
         x_btn.clicked.connect(self.hide)
         hdr.addWidget(x_btn)
+
         col.addLayout(hdr)
 
         # Search
-        sb = QFrame(); sb.setStyleSheet(f"QFrame {{ background: {BG}; border: 1px solid {BORDER}; border-radius: {R_SM}px; }}")
-        sl = QHBoxLayout(sb); sl.setContentsMargins(10, 0, 10, 0); sl.setSpacing(6)
-        si = QLabel(); si.setPixmap(Icon.search(FG_FAINT, 14).pixmap(14, 14)); sl.addWidget(si)
-        self.search = QLineEdit(); self.search.setPlaceholderText("search..."); self.search.setStyleSheet(f"QLineEdit {{ background: transparent; color: {FG}; border: none; font-size: 12px; padding: 5px 0; }} QLineEdit::placeholder {{ color: {FG_FAINT}; }}")
+        sb = QFrame()
+        sb.setStyleSheet(f"""
+            QFrame {{
+                background: {BG};
+                border: 1px solid {BORDER};
+                border-radius: {R_SM}px;
+            }}
+        """)
+        sl = QHBoxLayout(sb)
+        sl.setContentsMargins(10, 0, 10, 0)
+        sl.setSpacing(6)
+
+        si = QLabel()
+        si.setPixmap(Icons.search(FG_FAINT).pixmap(14, 14))
+        sl.addWidget(si)
+
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("search...")
+        self.search.setStyleSheet(f"""
+            QLineEdit {{
+                background: transparent;
+                color: {FG};
+                border: none;
+                font-size: 12px;
+                padding: 5px 0;
+            }}
+            QLineEdit::placeholder {{
+                color: {FG_FAINT};
+            }}
+        """)
         self.search.textChanged.connect(self._refresh)
         sl.addWidget(self.search, 1)
+
         col.addWidget(sb)
 
         # Tabs
-        tabs = QHBoxLayout(); tabs.setSpacing(4)
-        self.t_all = Pill("All"); self.t_pin = Pill("Pinned"); self.t_txt = Pill("Text")
+        tabs = QHBoxLayout()
+        tabs.setSpacing(4)
+        self.t_all = Pill("All")
+        self.t_pin = Pill("Pinned")
+        self.t_txt = Pill("Text")
         self.t_all.setChecked(True)
-        self.t_all.clicked.connect(lambda: self._tab("all")); self.t_pin.clicked.connect(lambda: self._tab("pinned")); self.t_txt.clicked.connect(lambda: self._tab("text"))
-        tabs.addWidget(self.t_all); tabs.addWidget(self.t_pin); tabs.addWidget(self.t_txt); tabs.addStretch()
+        self.t_all.clicked.connect(lambda: self._tab("all"))
+        self.t_pin.clicked.connect(lambda: self._tab("pinned"))
+        self.t_txt.clicked.connect(lambda: self._tab("text"))
+        tabs.addWidget(self.t_all)
+        tabs.addWidget(self.t_pin)
+        tabs.addWidget(self.t_txt)
+        tabs.addStretch()
         col.addLayout(tabs)
 
         # Body
-        body = QHBoxLayout(); body.setSpacing(8)
+        body = QHBoxLayout()
+        body.setSpacing(8)
 
         # List
-        lf = QFrame(); lf.setStyleSheet(f"QFrame {{ background: {BG}; border: 1px solid {BORDER}; border-radius: {R_SM}px; }}")
-        ll = QVBoxLayout(lf); ll.setContentsMargins(4, 4, 4, 4); ll.setSpacing(1)
+        lf = QFrame()
+        lf.setStyleSheet(f"""
+            QFrame {{
+                background: {BG};
+                border: 1px solid {BORDER};
+                border-radius: {R_SM}px;
+            }}
+        """)
+        ll = QVBoxLayout(lf)
+        ll.setContentsMargins(4, 4, 4, 4)
+        ll.setSpacing(1)
 
-        self.scroll = QScrollArea(); self.scroll.setWidgetResizable(True); self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet(f"QScrollArea {{ background: transparent; border: none; }} QScrollBar:vertical {{ background: transparent; width: 4px; }} QScrollBar::handle:vertical {{ background: {HOVER}; border-radius: 2px; min-height: 30px; }} QScrollBar::handle:vertical:hover {{ background: {FG_FAINT}; }} QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}")
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setStyleSheet(f"""
+            QScrollArea {{ background: transparent; border: none; }}
+            QScrollBar:vertical {{
+                background: transparent;
+                width: 4px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {HOVER};
+                border-radius: 2px;
+                min-height: 30px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {FG_FAINT};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0;
+            }}
+        """)
 
-        self.list_w = QWidget(); self.list_w.setStyleSheet("background: transparent;")
-        self.list_lay = QVBoxLayout(self.list_w); self.list_lay.setContentsMargins(0, 0, 0, 0); self.list_lay.setSpacing(1); self.list_lay.addStretch()
-        self.scroll.setWidget(self.list_w); ll.addWidget(self.scroll)
+        self.list_w = QWidget()
+        self.list_w.setStyleSheet("background: transparent;")
+        self.list_lay = QVBoxLayout(self.list_w)
+        self.list_lay.setContentsMargins(0, 0, 0, 0)
+        self.list_lay.setSpacing(1)
+        self.list_lay.addStretch()
+        self.scroll.setWidget(self.list_w)
+        ll.addWidget(self.scroll)
         body.addWidget(lf, 2)
 
         # Preview
-        pf = QFrame(); pf.setStyleSheet(f"QFrame {{ background: {BG}; border: 1px solid {BORDER}; border-radius: {R_SM}px; }}")
-        pll = QVBoxLayout(pf); pll.setContentsMargins(0, 0, 0, 0)
-        self.preview = Preview(); pll.addWidget(self.preview)
+        pf = QFrame()
+        pf.setStyleSheet(f"""
+            QFrame {{
+                background: {BG};
+                border: 1px solid {BORDER};
+                border-radius: {R_SM}px;
+            }}
+        """)
+        pll = QVBoxLayout(pf)
+        pll.setContentsMargins(0, 0, 0, 0)
+        self.preview = Preview()
+        pll.addWidget(self.preview)
         body.addWidget(pf, 1)
+
         col.addLayout(body, 1)
 
         # Actions
-        acts = QHBoxLayout(); acts.setSpacing(6)
-        self.btn_c = ActionButton("Copy", GREEN, Icon.copy)
-        self.btn_p = ActionButton("Pin", YELLOW, Icon.pin)
-        self.btn_d = ActionButton("Delete", RED, Icon.trash)
-        acts.addWidget(self.btn_c); acts.addWidget(self.btn_p); acts.addWidget(self.btn_d); acts.addStretch()
-        acts.addWidget(ActionButton("Clear", FG_FAINT, Icon.eraser))
+        acts = QHBoxLayout()
+        acts.setSpacing(6)
+        self.btn_c = ActionButton("Copy", GREEN, Icons.copy(GREEN))
+        self.btn_p = ActionButton("Pin", YELLOW, Icons.pin(YELLOW))
+        self.btn_d = ActionButton("Delete", RED, Icons.trash(RED))
+        acts.addWidget(self.btn_c)
+        acts.addWidget(self.btn_p)
+        acts.addWidget(self.btn_d)
+        acts.addStretch()
+        acts.addWidget(ActionButton("Clear", FG_FAINT, Icons.eraser(FG_FAINT)))
         col.addLayout(acts)
 
         # Keys
@@ -448,27 +611,36 @@ class Window(QWidget):
 
     def _tab(self, t):
         self.tab = t
-        self.t_all.setChecked(t == "all"); self.t_pin.setChecked(t == "pinned"); self.t_txt.setChecked(t == "text")
+        self.t_all.setChecked(t == "all")
+        self.t_pin.setChecked(t == "pinned")
+        self.t_txt.setChecked(t == "text")
         self._refresh()
 
     def _load(self):
-        self.history = load_history(); self._refresh()
+        self.history = load_history()
+        self._refresh()
 
     def _refresh(self):
-        for w in self.items: w.setParent(None); w.deleteLater()
+        for w in self.items:
+            w.setParent(None)
+            w.deleteLater()
         self.items.clear()
         s = sorted(self.history, key=lambda x: (not x.get("pinned", False), x.get("timestamp", "")), reverse=True)
         q = self.search.text().lower()
-        self.filtered = []; idx = 0
+        self.filtered = []
+        idx = 0
         for item in s:
-            c = item.get("content", ""); p = item.get("pinned", False)
+            c = item.get("content", "")
+            p = item.get("pinned", False)
             if q and q not in c.lower(): continue
             if self.tab == "pinned" and not p: continue
             if self.tab == "text" and c.startswith("[image:"): continue
             w = ItemWidget(c, item.get("timestamp", ""), p, idx)
             w.mousePressEvent = lambda e, i=idx: self._select(i)
             self.list_lay.insertWidget(self.list_lay.count() - 1, w)
-            self.items.append(w); self.filtered.append(item); idx += 1
+            self.items.append(w)
+            self.filtered.append(item)
+            idx += 1
         self.count.setText(str(len(self.items)))
         if self.items: self._select(0)
         else: self.preview.clear()
@@ -494,33 +666,48 @@ class Window(QWidget):
 
     def _pin(self):
         if self.sel >= len(self.filtered): return
-        item = self.filtered[self.sel]; item["pinned"] = not item.get("pinned", False)
+        item = self.filtered[self.sel]
+        item["pinned"] = not item.get("pinned", False)
         for h in self.history:
             if h.get("content") == item.get("content"): h["pinned"] = item["pinned"]; break
-        save_history(self.history); self._refresh()
+        save_history(self.history)
+        self._refresh()
         self._flash("Pinned" if item["pinned"] else "Unpinned", YELLOW)
 
     def _del(self):
         if self.sel >= len(self.filtered): return
         item = self.filtered[self.sel]
         self.history = [h for h in self.history if h.get("content") != item.get("content")]
-        save_history(self.history); self._refresh(); self._flash("Deleted", RED)
+        save_history(self.history)
+        self._refresh()
+        self._flash("Deleted", RED)
 
     def _clear(self):
-        self.history = []; save_history(self.history); self._refresh(); self._flash("Cleared", FG_FAINT)
+        self.history = []
+        save_history(self.history)
+        self._refresh()
+        self._flash("Cleared", FG_FAINT)
 
     def _flash(self, msg, color):
-        self.count.setText(msg); self.count.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
+        self.count.setText(msg)
+        self.count.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
         QTimer.singleShot(1500, lambda: self.count.setStyleSheet(f"color: {FG_FAINT}; font-size: 12px; background: transparent;"))
 
     def show_window(self):
-        self._load(); self.search.clear(); self.search.setFocus(); self._tab("all")
+        self._load()
+        self.search.clear()
+        self.search.setFocus()
+        self._tab("all")
         s = QApplication.primaryScreen().geometry()
         self.move((s.width()-self.width())//2, (s.height()-self.height())//2)
-        self.show(); self.raise_(); self.activateWindow()
+        self.show()
+        self.raise_()
+        self.activateWindow()
 
     def _monitor(self):
-        self.timer = QTimer(); self.timer.timeout.connect(self._check); self.timer.start(1000)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._check)
+        self.timer.start(1000)
         self._last = get_clip()
 
     def _check(self):
@@ -537,9 +724,13 @@ class Window(QWidget):
         k = e.key()
         if k == Qt.Key.Key_Escape: self.hide()
         elif k == Qt.Key.Key_Down:
-            if self.sel < len(self.filtered)-1: self._select(self.sel+1); self.scroll.ensureWidgetVisible(self.items[self.sel])
+            if self.sel < len(self.filtered)-1:
+                self._select(self.sel+1)
+                self.scroll.ensureWidgetVisible(self.items[self.sel])
         elif k == Qt.Key.Key_Up:
-            if self.sel > 0: self._select(self.sel-1); self.scroll.ensureWidgetVisible(self.items[self.sel])
+            if self.sel > 0:
+                self._select(self.sel-1)
+                self.scroll.ensureWidgetVisible(self.items[self.sel])
         elif k == Qt.Key.Key_PageDown: self._select(min(self.sel+10, len(self.filtered)-1))
         elif k == Qt.Key.Key_PageUp: self._select(max(self.sel-10, 0))
         elif k == Qt.Key.Key_Home: self._select(0)
@@ -558,9 +749,17 @@ def main():
         elif cmd == "clear": save_history([]); print("Cleared")
         return
 
-    app = QApplication(sys.argv); app.setQuitOnLastWindowClosed(False)
-    p = QPalette(); p.setColor(QPalette.ColorRole.Window, QColor(SURFACE)); p.setColor(QPalette.ColorRole.WindowText, QColor(FG)); p.setColor(QPalette.ColorRole.Base, QColor(BG)); p.setColor(QPalette.ColorRole.Text, QColor(FG)); app.setPalette(p)
-    w = Window(); w.show_window(); sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+    p = QPalette()
+    p.setColor(QPalette.ColorRole.Window, QColor(SURFACE))
+    p.setColor(QPalette.ColorRole.WindowText, QColor(FG))
+    p.setColor(QPalette.ColorRole.Base, QColor(BG))
+    p.setColor(QPalette.ColorRole.Text, QColor(FG))
+    app.setPalette(p)
+    w = Window()
+    w.show_window()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
