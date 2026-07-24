@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-launcher — minimal app launcher for Wayland/niri
-Search-first with "All" toggle. PyQt6 + Gruvbox theme.
+launcher — search-first app launcher for Wayland/niri
+Design: Gruvbox dark, keyboard-first, zero decoration.
 """
 
 import subprocess
@@ -19,7 +19,7 @@ from PyQt6.QtGui import (
     QPixmap, QIcon, QFont
 )
 
-# ─── Gruvbox ───
+# ─── Gruvbox tokens ───
 BG       = "#1d2021"
 SURFACE  = "#282828"
 SURF_HI  = "#3c3836"
@@ -35,205 +35,210 @@ AQUA     = "#8ec07c"
 BLUE     = "#83a598"
 PURPLE   = "#d3869b"
 
-R = 14
-R_SM = 8
+R      = 14
+R_SM   = 8
+ICON_S = 16
 
 
-# ─── SVG Icons ───
-def mk_icon(svg, color, size=16):
-    s = f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{svg}</svg>'
+# ─── SVG icons (Feather-style, stroke-only) ───
+def _svg_icon(svg, color, size=ICON_S):
+    tag = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
+        f'viewBox="0 0 24 24" fill="none" stroke="{color}" '
+        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        f'{svg}</svg>'
+    )
     px = QPixmap(size, size)
     px.fill(Qt.GlobalColor.transparent)
-    px.loadFromData(s.encode())
+    px.loadFromData(tag.encode())
     return QIcon(px)
 
 
-class I:
-    @staticmethod
-    def search(c=FG_DIM):
-        return mk_icon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>', c)
-
-    @staticmethod
-    def grid(c=FG_DIM):
-        return mk_icon('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>', c)
-
-    @staticmethod
-    def launch(c=FG_DIM):
-        return mk_icon('<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>', c)
-
-    @staticmethod
-    def terminal(c=FG_DIM):
-        return mk_icon('<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>', c)
-
-    @staticmethod
-    def folder(c=FG_DIM):
-        return mk_icon('<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>', c)
-
-    @staticmethod
-    def settings(c=FG_DIM):
-        return mk_icon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', c)
+class Icon:
+    SEARCH = lambda c=FG_DIM: _svg_icon(
+        '<circle cx="11" cy="11" r="7"/>'
+        '<path d="M21 21l-4.35-4.35"/>', c)
+    GRID = lambda c=FG_DIM: _svg_icon(
+        '<rect x="3" y="3" width="7" height="7" rx="1"/>'
+        '<rect x="14" y="3" width="7" height="7" rx="1"/>'
+        '<rect x="3" y="14" width="7" height="7" rx="1"/>'
+        '<rect x="14" y="14" width="7" height="7" rx="1"/>', c)
+    BOLT = lambda c=FG_DIM: _svg_icon(
+        '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>', c)
+    KEY = lambda c=FG_DIM: _svg_icon(
+        '<path d="M21 2l-2 2m-7.6 7.6a2.5 2.5 0 1 1-3.5-3.5L14 4"/>'
+        '<path d="M15.5 7.5L20 2"/>'
+        '<path d="M18 14l-3.5 3.5a2 2 0 0 1-2.8 0L8 14"/>', c)
+    TERMINAL = lambda c=FG_DIM: _svg_icon(
+        '<polyline points="4 17 10 11 4 5"/>'
+        '<line x1="12" y1="19" x2="20" y2="19"/>', c)
 
 
-def load_icon(icon_name: str, size: int = 22) -> QPixmap:
-    """Load app icon from system theme."""
-    icon = QIcon.fromTheme(icon_name)
+# ─── System icon loader ───
+def _load_icon(name: str, size: int = 24) -> QPixmap:
+    if not name:
+        return QPixmap()
+    icon = QIcon.fromTheme(name)
     if not icon.isNull():
         return icon.pixmap(size, size)
-
     for base in [
-        Path.home() / ".local/share/icons",
+        Path.home() / ".local/share/icons/hicolor/scalable/apps",
+        Path.home() / ".local/share/icons/hicolor/48x48/apps",
         Path("/usr/share/icons/hicolor/scalable/apps"),
         Path("/usr/share/icons/hicolor/48x48/apps"),
         Path("/usr/share/pixmaps"),
     ]:
-        for ext in [".svg", ".png", ".xpm", ""]:
-            p = base / f"{icon_name}{ext}"
+        for ext in (".svg", ".png", ""):
+            p = base / f"{name}{ext}"
             if p.exists():
                 return QPixmap(str(p)).scaled(
                     size, size,
                     Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
+                    Qt.TransformationMode.SmoothTransformation,
                 )
-
     return QPixmap()
 
 
-def run_app(exec_cmd: str):
-    try:
-        subprocess.Popen(exec_cmd.split(), start_new_session=True)
-    except Exception:
-        pass
-
-
 # ─── Desktop file parser ───
-def get_desktop_files() -> list:
-    apps = []
-    paths = [
-        Path.home() / ".local" / "share" / "applications",
-        Path("/usr/share/applications"),
-    ]
-    for p in paths:
-        if not p.exists():
+_DESKTOP_DIRS = [
+    Path.home() / ".local/share/applications",
+    Path("/usr/share/applications"),
+]
+
+
+def _parse_desktop(f: Path) -> dict | None:
+    try:
+        text = f.read_text(errors="ignore")
+    except Exception:
+        return None
+    name = exec_cmd = icon = ""
+    no_display = False
+    in_entry = False
+    for line in text.splitlines():
+        if line.startswith("[Desktop Entry]"):
+            in_entry = True
             continue
-        for f in p.glob("*.desktop"):
-            try:
-                content = f.read_text(errors="ignore")
-                name = exec_cmd = icon = ""
-                no_display = False
-                in_entry = False
+        if line.startswith("[") and in_entry:
+            break
+        if not in_entry:
+            continue
+        if line.startswith("Name=") and not name:
+            name = line.split("=", 1)[1].strip()
+        elif line.startswith("Exec=") and not exec_cmd:
+            exec_cmd = line.split("=", 1)[1].strip()
+        elif line.startswith("Icon=") and not icon:
+            icon = line.split("=", 1)[1].strip()
+        elif line.startswith("NoDisplay=true"):
+            no_display = True
+    if name and exec_cmd and not no_display:
+        return {"name": name, "exec": exec_cmd, "icon": icon}
+    return None
 
-                for line in content.splitlines():
-                    if line.startswith("[Desktop Entry]"):
-                        in_entry = True
-                        continue
-                    if line.startswith("[") and in_entry:
-                        break
-                    if not in_entry:
-                        continue
 
-                    if line.startswith("Name=") and not name:
-                        name = line.split("=", 1)[1].strip()
-                    elif line.startswith("Exec=") and not exec_cmd:
-                        exec_cmd = line.split("=", 1)[1].strip()
-                    elif line.startswith("Icon=") and not icon:
-                        icon = line.split("=", 1)[1].strip()
-                    elif line.startswith("NoDisplay=true"):
-                        no_display = True
-
-                if name and exec_cmd and not no_display:
-                    apps.append({"name": name, "exec": exec_cmd, "icon": icon})
-            except Exception:
-                continue
-
-    apps.sort(key=lambda x: x["name"].lower())
+def _load_apps() -> list[dict]:
+    apps = []
+    seen = set()
+    for d in _DESKTOP_DIRS:
+        if not d.exists():
+            continue
+        for f in d.glob("*.desktop"):
+            app = _parse_desktop(f)
+            if app and app["name"] not in seen:
+                apps.append(app)
+                seen.add(app["name"])
+    apps.sort(key=lambda a: a["name"].lower())
     return apps
 
 
-# ─── App Card ───
-class AppCard(QWidget):
-    def __init__(self, app, idx, total):
+# ─── Letter-circle fallback colors ───
+_FALLBACK_COLORS = [GREEN, YELLOW, AQUA, BLUE, PURPLE, RED]
+
+
+# ─── App row ───
+class AppRow(QWidget):
+    __slots__ = ("app", "_sel", "_hov")
+
+    def __init__(self, app: dict, idx: int, show_idx: bool):
         super().__init__()
         self.app = app
         self._sel = False
         self._hov = False
-        self.setFixedHeight(40)
+        self.setFixedHeight(38)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 0, 10, 0)
         lay.setSpacing(10)
 
-        # Icon
-        self.icon_label = QLabel()
-        self.icon_label.setFixedSize(28, 28)
-        px = load_icon(app.get("icon", ""), 28)
+        # icon
+        ico = QLabel()
+        ico.setFixedSize(24, 24)
+        px = _load_icon(app.get("icon", ""), 24)
         if not px.isNull():
-            self.icon_label.setPixmap(px)
+            ico.setPixmap(px)
         else:
-            # Fallback: letter circle
-            self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.icon_label.setFont(QFont("Adwaita Sans", 11, QFont.Weight.Bold))
             letter = app["name"][0].upper()
-            colors = [GREEN, YELLOW, AQUA, BLUE, PURPLE]
-            c = colors[ord(letter) % len(colors)]
-            self.icon_label.setText(letter)
-            self.icon_label.setStyleSheet(
-                f"color: {BG}; background: {c}; border-radius: 14px;"
-            )
-        lay.addWidget(self.icon_label)
+            c = _FALLBACK_COLORS[ord(letter) % len(_FALLBACK_COLORS)]
+            ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            ico.setFont(QFont("Adwaita Sans", 10, QFont.Weight.Bold))
+            ico.setText(letter)
+            ico.setStyleSheet(f"color:{BG}; background:{c}; border-radius:12px;")
+        lay.addWidget(ico)
 
-        # Name + exec
-        text_col = QVBoxLayout()
-        text_col.setSpacing(0)
-        text_col.setContentsMargins(0, 0, 0, 0)
+        # name + exec
+        col = QVBoxLayout()
+        col.setSpacing(0)
+        col.setContentsMargins(0, 0, 0, 0)
 
-        self.label = QLabel(app["name"])
-        self.label.setFont(QFont("Adwaita Sans", 11, QFont.Weight.DemiBold))
-        self.label.setStyleSheet(f"color: {FG}; background: transparent;")
-        text_col.addWidget(self.label)
+        lbl = QLabel(app["name"])
+        lbl.setFont(QFont("Adwaita Sans", 11, QFont.Weight.DemiBold))
+        lbl.setStyleSheet(f"color:{FG}; background:transparent;")
+        col.addWidget(lbl)
 
         exec_short = app["exec"].split()[0].split("/")[-1]
-        self.exec_label = QLabel(exec_short)
-        self.exec_label.setFont(QFont("Adwaita Sans", 8))
-        self.exec_label.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
-        text_col.addWidget(self.exec_label)
+        sub = QLabel(exec_short)
+        sub.setFont(QFont("Adwaita Sans", 8))
+        sub.setStyleSheet(f"color:{FG_FAINT}; background:transparent;")
+        col.addWidget(sub)
 
-        lay.addLayout(text_col, 1)
+        lay.addLayout(col, 1)
 
-        # Index badge
-        if total <= 10:
-            self.idx_label = QLabel(str(idx + 1))
-            self.idx_label.setFixedSize(20, 20)
-            self.idx_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.idx_label.setFont(QFont("Adwaita Sans", 8, QFont.Weight.Bold))
-            self.idx_label.setStyleSheet(
-                f"color: {FG_FAINT}; background: {SURF_HI}; border-radius: 10px;"
-            )
-            lay.addWidget(self.idx_label)
+        # idx badge (only when ≤10 items)
+        if show_idx:
+            badge = QLabel(str(idx + 1))
+            badge.setFixedSize(20, 20)
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setFont(QFont("Adwaita Sans", 8, QFont.Weight.Bold))
+            badge.setObjectName("badge")
+            self._badge = badge
+            self._update_badge()
+            lay.addWidget(badge)
 
-    def set_selected(self, s):
+    def _update_badge(self):
+        if not hasattr(self, "_badge"):
+            return
+        if self._sel:
+            self._badge.setStyleSheet(
+                f"color:{BG}; background:{GREEN}; border-radius:10px;")
+        else:
+            self._badge.setStyleSheet(
+                f"color:{FG_FAINT}; background:{SURF_HI}; border-radius:10px;")
+
+    def set_selected(self, s: bool):
         self._sel = s
-        if hasattr(self, "idx_label"):
-            if s:
-                self.idx_label.setStyleSheet(
-                    f"color: {BG}; background: {GREEN}; border-radius: 10px;"
-                )
-            else:
-                self.idx_label.setStyleSheet(
-                    f"color: {FG_FAINT}; background: {SURF_HI}; border-radius: 10px;"
-                )
+        self._update_badge()
         self.update()
 
     def paintEvent(self, e):
-        if self._sel or self._hov:
-            p = QPainter(self)
-            p.setRenderHint(QPainter.RenderHint.Antialiasing)
-            p.setBrush(QColor(GREEN if self._sel else HOVER))
-            p.setPen(Qt.PenStyle.NoPen)
-            alpha = 40 if self._sel else 25
-            p.setBrush(QColor(GREEN if self._sel else HOVER))
-            p.drawRoundedRect(QRectF(self.rect()), R_SM, R_SM)
-            p.end()
+        if not (self._sel or self._hov):
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(GREEN if self._sel else HOVER))
+        p.setOpacity(0.25 if self._sel else 0.35)
+        p.drawRoundedRect(QRectF(self.rect()), R_SM, R_SM)
+        p.end()
 
     def enterEvent(self, e):
         self._hov = True
@@ -244,89 +249,73 @@ class AppCard(QWidget):
         self.update()
 
 
-# ─── Pill Tab ───
+# ─── Pill tab ───
 class Pill(QPushButton):
-    def __init__(self, text, icon):
+    def __init__(self, text: str, icon_fn):
         super().__init__()
-        self._active = False
+        self._on = False
         self.setText(f"  {text}")
-        self.setIcon(icon)
+        self.setIcon(icon_fn(FG_DIM))
         self.setIconSize(QSize(12, 12))
         self.setCheckable(True)
         self.setFixedHeight(26)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFont(QFont("Adwaita Sans", 9, QFont.Weight.Bold))
-        self._update_style()
+        self._paint()
 
-    def _update_style(self):
-        if self._active:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background: {GREEN};
-                    color: {BG};
-                    border: none;
-                    border-radius: 13px;
-                    padding: 0 14px;
-                }}
-            """)
+    def _paint(self):
+        if self._on:
+            self.setStyleSheet(
+                f"QPushButton{{background:{GREEN};color:{BG};border:none;"
+                f"border-radius:13px;padding:0 14px;}}")
         else:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent;
-                    color: {FG_DIM};
-                    border: none;
-                    border-radius: 13px;
-                    padding: 0 14px;
-                }}
-                QPushButton:hover {{
-                    color: {FG};
-                    background: {HOVER};
-                }}
-            """)
+            self.setStyleSheet(
+                f"QPushButton{{background:transparent;color:{FG_DIM};border:none;"
+                f"border-radius:13px;padding:0 14px;}}"
+                f"QPushButton:hover{{color:{FG};background:{HOVER};}}")
 
-    def set_active(self, a):
-        self._active = a
-        self.setChecked(a)
-        self._update_style()
+    def set_active(self, v: bool):
+        self._on = v
+        self.setChecked(v)
+        self._paint()
 
 
-# ─── Window ───
+# ─── Main launcher ───
 class Launcher(QWidget):
     def __init__(self):
         super().__init__()
-        self.all_apps = []
-        self.filtered = []
-        self.items = []
-        self.sel = 0
-        self.show_all = False
+        self._apps: list[dict] = []
+        self._filtered: list[dict] = []
+        self._rows: list[AppRow] = []
+        self._sel = 0
+        self._show_all = False
         self._build()
-        self._load()
+        self._apps = _load_apps()
 
     def _build(self):
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(500, 440)
 
-        # Shadow frame
-        sf = QFrame(self)
-        sf.setGeometry(4, 4, 492, 432)
-        e = QGraphicsDropShadowEffect()
-        e.setBlurRadius(50)
-        e.setOffset(0, 10)
-        c = QColor(BG)
-        c.setAlpha(180)
-        e.setColor(c)
-        sf.setGraphicsEffect(e)
+        # shadow
+        shadow = QFrame(self)
+        shadow.setGeometry(4, 4, 492, 432)
+        eff = QGraphicsDropShadowEffect()
+        eff.setBlurRadius(50)
+        eff.setOffset(0, 10)
+        c = QColor(BG); c.setAlpha(180)
+        eff.setColor(c)
+        shadow.setGraphicsEffect(eff)
 
-        # Surface
+        # surface
         self.surf = QFrame(self)
         self.surf.setStyleSheet(
-            f"QFrame {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: {R}px; }}"
-        )
+            f"QFrame{{background:{SURFACE};border:1px solid {BORDER};"
+            f"border-radius:{R}px;}}")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -336,216 +325,181 @@ class Launcher(QWidget):
         col.setContentsMargins(14, 12, 14, 12)
         col.setSpacing(10)
 
-        # ─── Header ───
+        # ── header ──
         hdr = QHBoxLayout()
         hdr.setSpacing(8)
-
         dot = QLabel()
         dot.setFixedSize(8, 8)
-        dot.setStyleSheet(f"background: {GREEN}; border-radius: 4px;")
+        dot.setStyleSheet(f"background:{GREEN};border-radius:4px;")
         hdr.addWidget(dot)
-
         title = QLabel("Launcher")
         title.setFont(QFont("Adwaita Sans", 13, QFont.Weight.Bold))
-        title.setStyleSheet(f"color: {FG}; background: transparent;")
+        title.setStyleSheet(f"color:{FG};background:transparent;")
         hdr.addWidget(title)
-
         hdr.addStretch()
-
-        self.count = QLabel("0")
-        self.count.setFont(QFont("Adwaita Sans", 11))
-        self.count.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
-        hdr.addWidget(self.count)
-
+        self._count = QLabel("0")
+        self._count.setFont(QFont("Adwaita Sans", 11))
+        self._count.setStyleSheet(f"color:{FG_FAINT};background:transparent;")
+        hdr.addWidget(self._count)
         col.addLayout(hdr)
 
-        # ─── Search bar ───
-        sb = QFrame()
-        sb.setStyleSheet(
-            f"QFrame {{ background: {BG}; border: 1px solid {BORDER}; border-radius: 10px; }}"
-        )
-        sl = QHBoxLayout(sb)
-        sl.setContentsMargins(12, 0, 12, 0)
-        sl.setSpacing(8)
+        # ── search ──
+        bar = QFrame()
+        bar.setStyleSheet(
+            f"QFrame{{background:{BG};border:1px solid {BORDER};border-radius:10px;}}")
+        blay = QHBoxLayout(bar)
+        blay.setContentsMargins(12, 0, 12, 0)
+        blay.setSpacing(8)
 
         si = QLabel()
-        si.setPixmap(I.search(FG_FAINT).pixmap(16, 16))
-        sl.addWidget(si)
+        si.setPixmap(Icon.SEARCH(FG_FAINT).pixmap(ICON_S, ICON_S))
+        blay.addWidget(si)
 
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Search applications...")
-        self.search.setFont(QFont("Adwaita Sans", 13))
-        self.search.setStyleSheet(f"""
-            QLineEdit {{
-                background: transparent;
-                color: {FG};
-                border: none;
-                padding: 8px 0;
-                selection-background-color: {GREEN};
-                selection-color: {BG};
-            }}
-            QLineEdit::placeholder {{
-                color: {FG_FAINT};
-            }}
-        """)
-        self.search.textChanged.connect(self._filter)
-        sl.addWidget(self.search, 1)
+        self._input = QLineEdit()
+        self._input.setPlaceholderText("Search applications...")
+        self._input.setFont(QFont("Adwaita Sans", 13))
+        self._input.setStyleSheet(
+            f"QLineEdit{{background:transparent;color:{FG};border:none;padding:8px 0;"
+            f"selection-background-color:{GREEN};selection-color:{BG};}}"
+            f"QLineEdit::placeholder{{color:{FG_FAINT};}}")
+        self._input.textChanged.connect(self._filter)
+        blay.addWidget(self._input, 1)
+        col.addWidget(bar)
 
-        col.addWidget(sb)
-
-        # ─── Tabs ───
+        # ── tabs ──
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
-
-        self.tab_search = Pill("Search", I.search(FG_DIM))
-        self.tab_search.set_active(True)
-        self.tab_search.clicked.connect(lambda: self._set_mode("search"))
-
-        self.tab_all = Pill("All Apps", I.grid(FG_DIM))
-        self.tab_all.clicked.connect(lambda: self._set_mode("all"))
-
-        tabs.addWidget(self.tab_search)
-        tabs.addWidget(self.tab_all)
+        self._tab_search = Pill("Search", Icon.SEARCH)
+        self._tab_search.set_active(True)
+        self._tab_search.clicked.connect(lambda: self._mode("search"))
+        self._tab_all = Pill("All Apps", Icon.GRID)
+        self._tab_all.clicked.connect(lambda: self._mode("all"))
+        tabs.addWidget(self._tab_search)
+        tabs.addWidget(self._tab_all)
         tabs.addStretch()
-
         col.addLayout(tabs)
 
-        # ─── Divider ───
+        # ── divider ──
         div = QFrame()
         div.setFixedHeight(1)
-        div.setStyleSheet(f"background: {BORDER};")
+        div.setStyleSheet(f"background:{BORDER};")
         col.addWidget(div)
 
-        # ─── App list ───
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet(f"""
-            QScrollArea {{ background: transparent; border: none; }}
-            QScrollBar:vertical {{
-                background: transparent;
-                width: 5px;
-                margin: 4px 0;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {HOVER};
-                border-radius: 2px;
-                min-height: 40px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {FG_FAINT};
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                height: 0;
-            }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-                background: none;
-            }}
-        """)
+        # ── list ──
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet(
+            f"QScrollArea{{background:transparent;border:none;}}"
+            f"QScrollBar:vertical{{background:transparent;width:5px;margin:4px 0;}}"
+            f"QScrollBar::handle:vertical{{background:{HOVER};border-radius:2px;min-height:40px;}}"
+            f"QScrollBar::handle:vertical:hover{{background:{FG_FAINT};}}"
+            f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}"
+            f"QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{{background:none;}}")
 
-        self.list_w = QWidget()
-        self.list_w.setStyleSheet("background: transparent;")
-        self.list_lay = QVBoxLayout(self.list_w)
-        self.list_lay.setContentsMargins(0, 4, 0, 0)
-        self.list_lay.setSpacing(2)
-        self.list_lay.addStretch()
+        self._list_w = QWidget()
+        self._list_w.setStyleSheet("background:transparent;")
+        self._list_lay = QVBoxLayout(self._list_w)
+        self._list_lay.setContentsMargins(0, 4, 0, 0)
+        self._list_lay.setSpacing(2)
+        self._list_lay.addStretch()
+        self._scroll.setWidget(self._list_w)
+        col.addWidget(self._scroll, 1)
 
-        self.scroll.setWidget(self.list_w)
-        col.addWidget(self.scroll, 1)
+        # ── footer ──
+        foot = QHBoxLayout()
+        foot.setSpacing(16)
+        for key, desc in [("Tab", "toggle"), ("↑↓", "nav"),
+                          ("Enter", "open"), ("Esc", "close")]:
+            l = QLabel(f"{key} {desc}")
+            l.setFont(QFont("Adwaita Sans", 8))
+            l.setStyleSheet(f"color:{FG_FAINT};background:transparent;")
+            foot.addWidget(l)
+        foot.addStretch()
+        col.addLayout(foot)
 
-        # ─── Footer ───
-        footer = QHBoxLayout()
-        footer.setSpacing(12)
-
-        hints = [
-            ("Tab", "toggle"),
-            ("↑↓", "navigate"),
-            ("Enter", "launch"),
-            ("Esc", "close"),
-        ]
-        for key, desc in hints:
-            lbl = QLabel(f"{key} {desc}")
-            lbl.setFont(QFont("Adwaita Sans", 8))
-            lbl.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
-            footer.addWidget(lbl)
-
-        footer.addStretch()
-        col.addLayout(footer)
-
-        # ─── Shortcuts ───
+        # ── shortcuts ──
         QShortcut(QKeySequence("Return"), self, self._launch)
         QShortcut(QKeySequence("Escape"), self, self.hide)
         QShortcut(QKeySequence("Down"), self, self._down)
         QShortcut(QKeySequence("Up"), self, self._up)
-        QShortcut(QKeySequence("Tab"), self, self._toggle_mode)
+        QShortcut(QKeySequence("Tab"), self, self._toggle)
 
-    def _set_mode(self, mode):
-        self.show_all = (mode == "all")
-        self.tab_search.set_active(mode == "search")
-        self.tab_all.set_active(mode == "all")
+    # ── mode ──
+    def _mode(self, m: str):
+        self._show_all = m == "all"
+        self._tab_search.set_active(m == "search")
+        self._tab_all.set_active(m == "all")
         self._filter()
 
-    def _toggle_mode(self):
-        self._set_mode("all" if self.show_all else "search")
+    def _toggle(self):
+        self._mode("all" if self._show_all else "search")
 
-    def _load(self):
-        self.all_apps = get_desktop_files()
-        self._filter()
-
+    # ── filter ──
     def _filter(self):
-        for w in self.items:
+        for w in self._rows:
             w.setParent(None)
             w.deleteLater()
-        self.items.clear()
+        self._rows.clear()
 
-        q = self.search.text().lower().strip()
-        self.filtered = []
+        q = self._input.text().lower().strip()
+        self._filtered = []
         idx = 0
-
-        for app in self.all_apps:
-            if not self.show_all:
+        for app in self._apps:
+            if not self._show_all:
                 if not q or q not in app["name"].lower():
                     continue
-
-            w = AppCard(app, idx, len(self.all_apps))
-            w.mousePressEvent = lambda e, i=idx: self._sel(i)
-            w.mouseDoubleClickEvent = lambda e, i=idx: (self._sel(i), self._launch())
-            self.list_lay.insertWidget(self.list_lay.count() - 1, w)
-            self.items.append(w)
-            self.filtered.append(app)
+            row = AppRow(app, idx, len(self._apps) <= 10)
+            row.mousePressEvent = lambda e, i=idx: self._select(i)
+            row.mouseDoubleClickEvent = lambda e, i=idx: (
+                self._select(i), self._launch())
+            self._list_lay.insertWidget(self._list_lay.count() - 1, row)
+            self._rows.append(row)
+            self._filtered.append(app)
             idx += 1
 
-        self.count.setText(str(len(self.items)))
-        if self.items:
-            self._sel(0)
+        self._count.setText(str(len(self._rows)))
+        if self._rows:
+            self._select(0)
 
-    def _sel(self, i):
-        self.sel = min(max(i, 0), len(self.items) - 1)
-        for j, w in enumerate(self.items):
-            w.set_selected(j == self.sel)
-        if self.items and 0 <= self.sel < len(self.items):
-            self.scroll.ensureWidgetVisible(self.items[self.sel])
+    # ── selection ──
+    def _select(self, i: int):
+        self._sel = min(max(i, 0), len(self._rows) - 1)
+        for j, r in enumerate(self._rows):
+            r.set_selected(j == self._sel)
+        if self._rows and 0 <= self._sel < len(self._rows):
+            self._scroll.ensureWidgetVisible(self._rows[self._sel])
 
     def _down(self):
-        if self.sel < len(self.items) - 1:
-            self._sel(self.sel + 1)
+        if self._sel < len(self._rows) - 1:
+            self._select(self._sel + 1)
 
     def _up(self):
-        if self.sel > 0:
-            self._sel(self.sel - 1)
+        if self._sel > 0:
+            self._select(self._sel - 1)
 
+    # ── launch ──
     def _launch(self):
-        if self.sel < len(self.filtered):
-            run_app(self.filtered[self.sel]["exec"])
+        if self._sel < len(self._filtered):
+            try:
+                subprocess.Popen(
+                    self._filtered[self._sel]["exec"].split(),
+                    start_new_session=True,
+                )
+            except Exception:
+                pass
             self.hide()
 
-    def show_launcher(self):
-        self.search.clear()
-        self._set_mode("search")
-        self._load()
-        self.search.setFocus()
+    # ── show ──
+    def open(self):
+        self._input.clear()
+        self._mode("search")
+        self._filter()
+        self._input.setFocus()
         s = QApplication.primaryScreen().geometry()
-        self.move((s.width() - self.width()) // 2, (s.height() - self.height()) // 2)
+        self.move((s.width() - self.width()) // 2,
+                  (s.height() - self.height()) // 2)
         self.show()
         self.raise_()
         self.activateWindow()
@@ -565,7 +519,6 @@ class Launcher(QWidget):
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-
     p = app.palette()
     p.setColor(p.ColorRole.Window, QColor(SURFACE))
     p.setColor(p.ColorRole.WindowText, QColor(FG))
@@ -573,8 +526,8 @@ def main():
     p.setColor(p.ColorRole.Text, QColor(FG))
     app.setPalette(p)
 
-    launcher = Launcher()
-    launcher.show_launcher()
+    w = Launcher()
+    w.open()
     sys.exit(app.exec())
 
 
