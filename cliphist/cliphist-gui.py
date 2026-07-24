@@ -185,6 +185,12 @@ class Preview(QWidget):
         self.body.setStyleSheet(f"color: {FG_DIM}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
         lay.addWidget(self.body, 1)
 
+        self.img_label = QLabel()
+        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_label.setStyleSheet(f"background: {BG}; border-radius: {R_SM}px; padding: 4px;")
+        self.img_label.hide()
+        lay.addWidget(self.img_label, 1)
+
         self.meta = QLabel("")
         self.meta.setFont(QFont("Adwaita Sans", 9))
         self.meta.setStyleSheet(f"color: {FG_FAINT}; background: transparent;")
@@ -192,17 +198,41 @@ class Preview(QWidget):
 
     def show(self, c):
         if c.startswith("[image:"):
-            self.body.setText("Image")
-            self.body.setStyleSheet(f"color: {AQUA}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
+            img_path = c.replace("[image:", "").replace("]", "")
+            if os.path.exists(img_path):
+                pixmap = QPixmap(img_path)
+                if not pixmap.isNull():
+                    scaled = pixmap.scaled(
+                        135, 135,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    self.img_label.setPixmap(scaled)
+                    self.img_label.show()
+                    self.body.hide()
+                else:
+                    self.body.setText("Image")
+                    self.body.setStyleSheet(f"color: {AQUA}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
+                    self.body.show()
+                    self.img_label.hide()
+            else:
+                self.body.setText("Image")
+                self.body.setStyleSheet(f"color: {AQUA}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
+                self.body.show()
+                self.img_label.hide()
             self.meta.setText("image/png")
         else:
             self.body.setText(c[:400])
             self.body.setStyleSheet(f"color: {FG_DIM}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
+            self.body.show()
+            self.img_label.hide()
             self.meta.setText(f"{len(c)} chars · {c.count(chr(10))+1} lines")
 
     def empty(self):
         self.body.setText("Select item")
         self.body.setStyleSheet(f"color: {FG_FAINT}; background: {BG}; border-radius: {R_SM}px; padding: 8px;")
+        self.body.show()
+        self.img_label.hide()
         self.meta.setText("")
 
 
